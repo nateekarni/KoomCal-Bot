@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import * as aiService from './services/ai.service';
 import * as lineService from './services/line.service';
 import * as userService from './services/user.service';
-// ✅ Import MAIN_QUICK_REPLY มาด้วย
 import { MAIN_QUICK_REPLY } from './services/line.service'; 
 import dotenv from 'dotenv';
 
@@ -30,37 +29,18 @@ const getThaiDate = () => {
 };
 
 const app: Application = express();
-app.use(express.json());
 
-// Routes
+// ==========================================
+// 🚨 สำคัญมาก: Webhook ต้องอยู่ก่อน express.json()
+// ==========================================
+
+// 1. Health Check
 app.get('/', (req, res) => { res.send('🤖 KoomCal Bot Ready!'); });
-app.get('/api/liff-id', (req, res) => { res.json({ liffId: process.env.LIFF_ID }); });
 
-app.post('/api/register-liff', async (req, res) => {
-  const { userId, weight, height, age, gender, activity } = req.body;
-  try {
-    const tdee = await userService.registerUser(userId, weight, height, age, gender, activity);
-    
-    // Push Message Confirm
-    const client = new line.Client(config as line.ClientConfig);
-    await client.pushMessage(userId, {
-        type: 'text',
-        text: `✅ ลงทะเบียนสำเร็จ!\n🔥 TDEE ของคุณคือ: ${tdee} kcal/วัน\n\nเริ่มใช้งานโดยการถ่ายรูปอาหาร หรือพิมพ์เมนูได้เลยครับ!`,
-        quickReply: MAIN_QUICK_REPLY // ✅ ใส่ Quick Reply ให้ตั้งแต่เริ่มเลย
-    });
-
-    res.status(200).json({ success: true });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false });
-  }
-});
-
-// Webhook
+// 2. Webhook (รับ Raw Body เพื่อ Check Signature)
 app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (req, res) => {
   try {
     const events: line.WebhookEvent[] = req.body.events;
-    // ✅ เพิ่ม try-catch ย่อย เพื่อไม่ให้ event เดียวทำพังทั้งระบบ
     if (events.length > 0) {
         await Promise.all(events.map(async (event) => {
             try {
@@ -77,11 +57,42 @@ app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (re
   }
 });
 
+// ==========================================
+// 🛠️ ส่วน API อื่นๆ ให้ใช้ JSON Parser ได้
+// ==========================================
+app.use(express.json());
+
+// 3. API: Provide LIFF ID
+app.get('/api/liff-id', (req, res) => { res.json({ liffId: process.env.LIFF_ID }); });
+
+// 4. API: Register from LIFF
+app.post('/api/register-liff', async (req, res) => {
+  const { userId, weight, height, age, gender, activity } = req.body;
+  try {
+    const tdee = await userService.registerUser(userId, weight, height, age, gender, activity);
+    
+    // Push Message Confirm
+    const client = new line.Client(config as line.ClientConfig);
+    await client.pushMessage(userId, {
+        type: 'text',
+        text: `✅ ลงทะเบียนสำเร็จ!\n🔥 TDEE ของคุณคือ: ${tdee} kcal/วัน\n\nเริ่มใช้งานโดยการถ่ายรูปอาหาร หรือพิมพ์เมนูได้เลยครับ!`,
+        quickReply: MAIN_QUICK_REPLY
+    });
+
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false });
+  }
+});
 
 // --- EVENT HANDLER ---
 async function handleEvent(event: line.WebhookEvent) {
   const userId = event.source.userId;
-  if (!userId || (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId))) return Promise.resolve(null);
+  // เพิ่มการเช็คเพื่อป้องกัน Error ตอน Verify (Verify Event มักไม่มี userId หรือเป็น Dummy)
+  if (!userId) return Promise.resolve(null);
+  
+  if (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId)) return Promise.resolve(null);
 
   const client = new line.Client(config as line.ClientConfig);
 
@@ -123,7 +134,6 @@ async function handleEvent(event: line.WebhookEvent) {
   else if (event.type === 'message') {
     const isRegistered = await userService.checkUserExists(userId);
     if (!isRegistered) {
-      // ส่งการ์ดเตือนให้ลงทะเบียน (เหมือนเดิม)
       await client.replyMessage(event.replyToken, {
         type: 'flex',
         altText: 'กรุณาลงทะเบียนก่อนใช้งาน',
@@ -145,7 +155,6 @@ async function handleEvent(event: line.WebhookEvent) {
       return;
     }
 
-    // A. Image Message
     if (event.message.type === 'image') {
       try {
         const imageBuffer = await lineService.getContent(event.message.id);
@@ -157,13 +166,11 @@ async function handleEvent(event: line.WebhookEvent) {
       }
     }
 
-    // B. Text Message
     else if (event.message.type === 'text') {
       const text = event.message.text.trim();
       const isMenuRequest = text.startsWith('เมนู 7-11') || text.startsWith('เมนูตามสั่ง') || text.startsWith('เมนูทำเอง');
 
       if (isMenuRequest) {
-        // ... (Logic คำนวณ Budget เดิม) ...
         const today = getThaiDate().toISOString().split('T')[0];
         const startOfDay = new Date(today); startOfDay.setHours(startOfDay.getHours() - 7);
         const endOfDay = new Date(startOfDay); endOfDay.setDate(endOfDay.getDate() + 1);
@@ -206,7 +213,6 @@ async function handleEvent(event: line.WebhookEvent) {
       }
 
       else if (text === 'สรุปแคล') {
-        // ... (Logic สรุปแคลเดิม) ...
         const today = getThaiDate().toISOString().split('T')[0];
         const startOfDay = new Date(today); startOfDay.setHours(startOfDay.getHours() - 7);
         const endOfDay = new Date(startOfDay); endOfDay.setDate(endOfDay.getDate() + 1);
@@ -236,7 +242,6 @@ async function handleSaveCommand(client: line.Client, userId: string, replyToken
       const { error } = await supabase.from('KoomCal_FoodLogs').insert([{ user_id: userId, food_name: foodName, calories: calories, meal_type: mealType }]);
       if (error) throw error;
       
-      // ✅ ตอบกลับพร้อม Quick Reply
       await client.replyMessage(replyToken, { 
           type: 'text', 
           text: `✅ บันทึกเรียบร้อย!\n🍽️ ${foodName}\n🔥 ${calories} kcal\n📅 มื้อ: ${mealType}`,
@@ -250,7 +255,6 @@ async function handleSaveCommand(client: line.Client, userId: string, replyToken
   }
 }
 
-// ... (Server Start เดิม) ...
 const port = process.env.PORT || 3000;
 if (process.env.VERCEL) module.exports = app;
 else app.listen(port, () => console.log(`Server running on port ${port}`));
