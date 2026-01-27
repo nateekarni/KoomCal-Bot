@@ -1,5 +1,4 @@
 import express, { Application, Request, Response } from 'express';
-import path from 'path';
 import * as line from '@line/bot-sdk';
 import { createClient } from '@supabase/supabase-js';
 import * as aiService from './services/ai.service';
@@ -7,6 +6,7 @@ import * as lineService from './services/line.service';
 import * as userService from './services/user.service';
 import { MAIN_QUICK_REPLY } from './services/line.service'; 
 import dotenv from 'dotenv';
+import path from 'path'; // เพิ่ม import path
 
 dotenv.config();
 
@@ -30,16 +30,18 @@ const getThaiDate = () => {
 };
 
 const app: Application = express();
+
+// ==========================================
+// 1. Static Files (เปิดให้เข้าถึงหน้า register.html)
+// ==========================================
 app.use(express.static(path.join(__dirname, '../public')));
 
-// ==========================================
-// 🚨 สำคัญมาก: Webhook ต้องอยู่ก่อน express.json()
-// ==========================================
-
-// 1. Health Check
+// 2. Health Check
 app.get('/', (req, res) => { res.send('🤖 KoomCal Bot Ready!'); });
 
-// 2. Webhook (รับ Raw Body เพื่อ Check Signature)
+// ==========================================
+// 🚨 3. Webhook (ต้องอยู่ก่อน express.json เสมอ!)
+// ==========================================
 app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (req, res) => {
   try {
     const events: line.WebhookEvent[] = req.body.events;
@@ -60,25 +62,21 @@ app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (re
 });
 
 // ==========================================
-// 🛠️ ส่วน API อื่นๆ ให้ใช้ JSON Parser ได้
+// 4. API อื่นๆ (ใช้ JSON Parser ได้)
 // ==========================================
 app.use(express.json());
 
-// 3. API: Provide LIFF ID
 app.get('/api/liff-id', (req, res) => { res.json({ liffId: process.env.LIFF_ID }); });
 
-// 4. API: Register from LIFF
 app.post('/api/register-liff', async (req, res) => {
-  // ✅ รับค่า goal มาด้วย
   const { userId, weight, height, age, gender, activity, goal } = req.body;
   try {
-    // ✅ ส่ง goal ไปให้ service
     const tdee = await userService.registerUser(userId, weight, height, age, gender, activity, goal);
     
     // Push Message Confirm
     const client = new line.Client(config as line.ClientConfig);
     
-    // แปลง goal เป็นภาษาไทยสวยๆ เพื่อตอบกลับ
+    // แปลง goal เป็นภาษาไทย
     let goalText = 'รักษาน้ำหนัก';
     if (goal === 'lose_weight') goalText = 'ลดน้ำหนัก';
     else if (goal === 'muscle_gain') goalText = 'สร้างกล้ามเนื้อ';
@@ -99,7 +97,6 @@ app.post('/api/register-liff', async (req, res) => {
 // --- EVENT HANDLER ---
 async function handleEvent(event: line.WebhookEvent) {
   const userId = event.source.userId;
-  // เพิ่มการเช็คเพื่อป้องกัน Error ตอน Verify (Verify Event มักไม่มี userId หรือเป็น Dummy)
   if (!userId) return Promise.resolve(null);
   
   if (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId)) return Promise.resolve(null);
@@ -143,6 +140,9 @@ async function handleEvent(event: line.WebhookEvent) {
   // 2. Message Event
   else if (event.type === 'message') {
     const isRegistered = await userService.checkUserExists(userId);
+    
+    // ⚠️ ถ้ายังไม่แก้ RLS อาจจะติดตรงนี้ (อ่าน DB ไม่ได้ -> checkUserExists คืนค่า false)
+    // บอทอาจจะวนถามให้ลงทะเบียนใหม่ แต่จะไม่เงียบครับ
     if (!isRegistered) {
       await client.replyMessage(event.replyToken, {
         type: 'flex',
