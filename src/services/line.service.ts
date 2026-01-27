@@ -55,7 +55,7 @@ export const linkRichMenuToUser = async (userId: string, richMenuId: string) => 
 // 🍽️ 2. Reply Food Analysis Result
 // ⚠️ เปลี่ยนเป็นรับ userId และใช้ pushMessage เพื่อแก้ปัญหา Token Timeout
 // ==========================================================
-export const replyFoodResult = async (userId: string, data: any) => {
+export const replyFoodResult = async (replyToken: string, data: any) => {
   const itemRows: line.FlexComponent[] = data.items.map((item: any) => ({
     type: "box", layout: "horizontal",
     contents: [
@@ -100,7 +100,7 @@ export const replyFoodResult = async (userId: string, data: any) => {
   };
   
   // 🚀 ใช้ pushMessage แทน replyMessage
-  await client.pushMessage(userId, flexMsg);
+  await client.replyMessage(replyToken, flexMsg);
 };
 
 // ... (functions อื่นๆ replyDailySummary, replyMenuRecommendation เหมือนเดิม ไม่ต้องแก้)

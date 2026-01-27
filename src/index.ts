@@ -47,7 +47,7 @@ app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (re
   try {
     const events: line.WebhookEvent[] = req.body.events;
     
-    // ใช้ Promise.all เพื่อรอให้ทุก Event ทำงานเสร็จ (และดัก Error ย่อย)
+    // ใช้ Promise.all เพื่อรอให้ทุก Event ทำงานเสร็จ
     if (events.length > 0) {
         await Promise.all(events.map(async (event) => {
             try {
@@ -79,7 +79,7 @@ app.post('/api/register-liff', async (req, res) => {
   try {
     const tdee = await userService.registerUser(userId, weight, height, age, gender, activity, goal);
     
-    // Push Message ยืนยัน
+    // Push Message ยืนยัน (ใช้ Push แค่ตอนลงทะเบียนครั้งแรก ถือว่าคุ้มค่า)
     const client = new line.Client(config as line.ClientConfig);
     
     let goalText = 'รักษาน้ำหนัก';
@@ -104,7 +104,7 @@ async function handleEvent(event: line.WebhookEvent) {
   const userId = event.source.userId;
   if (!userId) return Promise.resolve(null);
   
-  // Security Guard: Check Allowed Users (ถ้าตั้งค่าไว้)
+  // Security Guard
   if (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId)) return Promise.resolve(null);
 
   const client = new line.Client(config as line.ClientConfig);
@@ -115,6 +115,7 @@ async function handleEvent(event: line.WebhookEvent) {
   if (event.type === 'follow') {
     const isRegistered = await userService.checkUserExists(userId);
     if (!isRegistered) {
+      // ส่งการ์ดให้ไปลงทะเบียน
       await client.replyMessage(event.replyToken, {
         type: 'flex',
         altText: 'กรุณาลงทะเบียนใช้งาน',
@@ -153,7 +154,6 @@ async function handleEvent(event: line.WebhookEvent) {
     const isRegistered = await userService.checkUserExists(userId);
     
     if (!isRegistered) {
-      // ถ้ายังไม่ลงทะเบียน ให้ส่งการ์ดลงทะเบียนไปใหม่
       await client.replyMessage(event.replyToken, {
         type: 'flex',
         altText: 'กรุณาลงทะเบียนก่อนใช้งาน',
@@ -180,25 +180,24 @@ async function handleEvent(event: line.WebhookEvent) {
       try {
         const imageBuffer = await lineService.getContent(event.message.id);
         
-        // 🚀 1. ตอบกลับทันที (Reply) เพื่อบอกว่าได้รับรูปแล้ว และป้องกัน Timeout
-        // (เพราะ AI อาจใช้เวลา 5-10 วินาที ซึ่ง replyToken อาจหมดอายุก่อน)
-        await client.replyMessage(event.replyToken, { 
-            type: 'text', 
-            text: '🔍 กำลังวิเคราะห์รูปภาพ... รอสักครู่นะครับ',
-            quickReply: MAIN_QUICK_REPLY 
-        });
-
-        // 🚀 2. เรียก AI ประมวลผล (ใช้เวลา)
+        // 💡 เราจะไม่ส่งข้อความ "กำลังวิเคราะห์..." เพื่อประหยัด Reply Token
+        // User จะเห็นบอทเงียบไปประมาณ 3-5 วินาที แล้วผลลัพธ์จะเด้งขึ้นมา
+        
+        // 1. เรียก AI ประมวลผล
         const result = await aiService.analyzeFoodImage(imageBuffer);
         
-        // 🚀 3. ส่งผลลัพธ์ตามไป (Push) โดยใช้ userId (ไม่ใช้ Token แล้ว)
-        // ต้องมั่นใจว่าใน line.service.ts ฟังก์ชัน replyFoodResult ถูกแก้เป็น pushMessage(userId, ...) แล้ว
-        await lineService.replyFoodResult(userId, result);
+        // 2. ส่งผลลัพธ์ด้วย replyMessage (ฟรี ไม่เสียโควต้า Push)
+        // (ต้องมั่นใจว่าใน line.service.ts ฟังก์ชัน replyFoodResult รับ replyToken)
+        await lineService.replyFoodResult(event.replyToken, result);
 
       } catch (error) {
         console.error('Image Analysis Error:', error);
-        // ถ้า error ให้ Push บอก user
-        await client.pushMessage(userId, { type: 'text', text: '❌ เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ กรุณาลองใหม่ครับ' });
+        // ถ้า Error ให้แจ้ง User (ยังใช้ Token ได้ถ้ายังไม่เคยตอบ)
+        await client.replyMessage(event.replyToken, { 
+            type: 'text', 
+            text: '❌ เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ กรุณาลองใหม่ครับ',
+            quickReply: MAIN_QUICK_REPLY
+        });
       }
     }
 
@@ -208,7 +207,6 @@ async function handleEvent(event: line.WebhookEvent) {
       const isMenuRequest = text.startsWith('เมนู 7-11') || text.startsWith('เมนูตามสั่ง') || text.startsWith('เมนูทำเอง');
 
       if (isMenuRequest) {
-        // ... คำนวณช่วงเวลาและ Budget ...
         const today = getThaiDate().toISOString().split('T')[0];
         const startOfDay = new Date(today); startOfDay.setHours(startOfDay.getHours() - 7);
         const endOfDay = new Date(startOfDay); endOfDay.setDate(endOfDay.getDate() + 1);
@@ -242,26 +240,19 @@ async function handleEvent(event: line.WebhookEvent) {
         else if (text.startsWith('เมนูทำเอง')) category = 'Home Cooked';
 
         try {
-            // แจ้ง user ก่อนว่ากำลังคิด
-            await client.replyMessage(event.replyToken, { type: 'text', text: '👩‍🍳 กำลังคิดเมนูให้ครับ...' });
-
+            // เรียก AI แนะนำเมนู
             const recommendations = await aiService.generateMenuRecommendation(category, mealType, budget, recentMenuNames);
             
-            // ส่งผลลัพธ์ (เมนูแนะนำใช้ pushMessage หรือ replyMessage ก็ได้ แต่ถ้า token ถูกใช้ไปแล้วตอนแจ้งเตือนข้างบน ต้องใช้ pushMessage)
-            // ในที่นี้เราใช้ replyMessage ไปแล้วข้างบน ดังนั้นต้องใช้ pushMessage ส่งผลลัพธ์
-            await client.pushMessage(userId, {
-                type: "flex",
-                altText: `Recommended: ${category}`,
-                quickReply: MAIN_QUICK_REPLY,
-            });
-            
-            // *หมายเหตุ*: เพื่อความสมบูรณ์ ผมแนะนำให้แก้ lineService.replyMenuRecommendation ให้เป็น pushMessage(userId, ...) เหมือน replyFoodResult จะดีที่สุดครับ
-            // แต่ ณ ตอนนี้ ผมจะเรียกแบบเดิมไปก่อน (ถ้า AI ไม่ช้ามากจะผ่านครับ)
+            // ส่งผลลัพธ์
             await lineService.replyMenuRecommendation(event.replyToken, recommendations, category);
 
         } catch (e) {
             console.error(e);
-            await client.pushMessage(userId, { type: 'text', text: '❌ ระบบขัดข้องขณะคิดเมนู' });
+            await client.replyMessage(event.replyToken, { 
+                type: 'text', 
+                text: '❌ ระบบขัดข้องขณะคิดเมนู',
+                quickReply: MAIN_QUICK_REPLY
+            });
         }
       }
 
