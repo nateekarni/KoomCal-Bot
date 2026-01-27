@@ -1,4 +1,5 @@
 import express, { Application, Request, Response } from 'express';
+import path from 'path';
 import * as line from '@line/bot-sdk';
 import { createClient } from '@supabase/supabase-js';
 import * as aiService from './services/ai.service';
@@ -29,6 +30,7 @@ const getThaiDate = () => {
 };
 
 const app: Application = express();
+app.use(express.static(path.join(__dirname, '../public')));
 
 // ==========================================
 // 🚨 สำคัญมาก: Webhook ต้องอยู่ก่อน express.json()
