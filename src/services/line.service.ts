@@ -14,39 +14,19 @@ export const getContent = async (messageId: string): Promise<Buffer> => {
     return Buffer.concat(chunks);
 };
 
-// ✅ 1. Quick Reply (Clean Version)
+// ✅ Quick Reply (Standard)
 export const MAIN_QUICK_REPLY: line.QuickReply = {
   items: [
-    {
-      type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/128/10473/10473491.png",
-      action: { type: "camera", label: "ถ่ายรูปอาหาร" }
-    },
-    {
-      type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/128/10473/10473357.png",
-      action: { type: "message", label: "สรุปแคลวันนี้", text: "สรุปแคล" }
-    },
-    {
-      type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/128/15106/15106158.png",
-      action: { type: "message", label: "เมนู 7-11", text: "เมนู 7-11" }
-    },
-    {
-      type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/128/8209/8209353.png",
-      action: { type: "message", label: "เมนูตามสั่ง", text: "เมนูตามสั่ง" }
-    },
-    {
-      type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/128/9273/9273847.png",
-      action: { type: "message", label: "เมนูทำเอง", text: "เมนูทำเอง" }
-    }
+    { type: "action", imageUrl: "https://cdn-icons-png.flaticon.com/128/10473/10473491.png", action: { type: "camera", label: "ถ่ายรูปอาหาร" } },
+    { type: "action", imageUrl: "https://cdn-icons-png.flaticon.com/128/10473/10473357.png", action: { type: "message", label: "สรุปแคลวันนี้", text: "สรุปแคล" } },
+    { type: "action", imageUrl: "https://cdn-icons-png.flaticon.com/128/15106/15106158.png", action: { type: "message", label: "เมนู 7-11", text: "เมนู 7-11" } },
+    { type: "action", imageUrl: "https://cdn-icons-png.flaticon.com/128/8209/8209353.png", action: { type: "message", label: "เมนูตามสั่ง", text: "เมนูตามสั่ง" } },
+    { type: "action", imageUrl: "https://cdn-icons-png.flaticon.com/128/9273/9273847.png", action: { type: "message", label: "เมนูทำเอง", text: "เมนูทำเอง" } }
   ]
 };
 
 // ==========================================================
-// 🍽️ 2. Reply Food Analysis Result
+// 🍽️ Reply Food Analysis Result (Safe Mode)
 // ==========================================================
 export const replyFoodResult = async (replyToken: string, data: any) => {
   const itemRows: line.FlexComponent[] = data.items.map((item: any) => ({
@@ -57,12 +37,9 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
     ], margin: "md"
   }));
 
-  // ✅ แก้ไขปุ่ม: ลบ property 'color' ออก 100% ป้องกัน Error 400
+  // ✅ ปุ่มแบบปลอดภัย (ไม่มี color, ไม่มี spacer กั้น)
   const createMealButton = (label: string, icon: string, mealType: string): line.FlexButton => ({
-    type: "button", 
-    style: "secondary", 
-    height: "sm", 
-    // color: "#f4f4f5",  <-- ลบบรรทัดนี้ออกแล้ว
+    type: "button", style: "secondary", height: "sm",
     action: { type: "message", label: `${icon} ${label}`, text: `บันทึก: ${data.summary_name} (${data.total_calories} kcal) - ${mealType}` },
     flex: 1, margin: "xs"
   });
@@ -87,9 +64,9 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
         type: "box", layout: "vertical", paddingAll: "xl", backgroundColor: "#fafafa",
         contents: [
           { type: "text", text: "Save to log", size: "xs", color: "#a1a1aa", align: "center", margin: "none", weight: "bold" } as line.FlexText,
-          { type: "spacer", size: "sm" },
-          { type: "box", layout: "horizontal", contents: [ createMealButton("Breakfast", "🍳", "Breakfast"), createMealButton("Lunch", "☀️", "Lunch") ] } as line.FlexBox,
-          { type: "box", layout: "horizontal", contents: [ createMealButton("Dinner", "🌙", "Dinner"), createMealButton("Snack", "🍿", "Snack") ] } as line.FlexBox
+          // ❌ ลบ Spacer ออกเพื่อความชัวร์
+          { type: "box", layout: "horizontal", margin: "md", contents: [ createMealButton("Breakfast", "🍳", "Breakfast"), createMealButton("Lunch", "☀️", "Lunch") ] } as line.FlexBox,
+          { type: "box", layout: "horizontal", margin: "sm", contents: [ createMealButton("Dinner", "🌙", "Dinner"), createMealButton("Snack", "🍿", "Snack") ] } as line.FlexBox
         ]
       },
       styles: { footer: { separator: true } }
