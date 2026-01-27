@@ -1,169 +1,300 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ลงทะเบียน KoomCal</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ตั้งค่าข้อมูลส่วนตัว</title>
     <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
-                    colors: {
-                        border: "hsl(214.3 31.8% 91.4%)",
-                        input: "hsl(214.3 31.8% 91.4%)",
-                        ring: "hsl(222.2 47.4% 11.2%)",
-                        background: "hsl(0 0% 100%)",
-                        foreground: "hsl(222.2 47.4% 11.2%)",
-                        primary: { DEFAULT: "hsl(222.2 47.4% 11.2%)", foreground: "hsl(210 40% 98%)" },
-                        muted: { DEFAULT: "hsl(210 40% 96.1%)", foreground: "hsl(215.4 16.3% 46.9%)" },
-                    },
-                    borderRadius: { lg: "0.5rem", md: "calc(0.5rem - 2px)", sm: "calc(0.5rem - 4px)" },
-                },
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: { sans: ["Inter", "sans-serif"] },
+            colors: {
+              border: "hsl(214.3 31.8% 91.4%)",
+              input: "hsl(214.3 31.8% 91.4%)",
+              ring: "hsl(222.2 47.4% 11.2%)",
+              background: "hsl(0 0% 100%)",
+              foreground: "hsl(222.2 47.4% 11.2%)",
+              primary: {
+                DEFAULT: "hsl(222.2 47.4% 11.2%)",
+                foreground: "hsl(210 40% 98%)",
+              },
+              muted: {
+                DEFAULT: "hsl(210 40% 96.1%)",
+                foreground: "hsl(215.4 16.3% 46.9%)",
+              },
             },
-        }
+            borderRadius: {
+              lg: "0.5rem",
+              md: "calc(0.5rem - 2px)",
+              sm: "calc(0.5rem - 4px)",
+            },
+          },
+        },
+      };
     </script>
-</head>
-<body class="bg-gray-50 text-foreground font-sans antialiased flex items-center justify-center min-h-screen p-4">
+  </head>
+  <body
+    class="bg-gray-50 text-foreground font-sans antialiased flex items-center justify-center min-h-screen p-4"
+  >
+    <div
+      class="rounded-lg border bg-white text-card-foreground shadow-sm w-full max-w-[400px]"
+    >
+      <div class="flex flex-col space-y-1.5 p-6">
+        <h3 class="text-2xl font-semibold leading-none tracking-tight">
+          ตั้งค่าข้อมูลส่วนตัว
+        </h3>
+        <p class="text-sm text-muted-foreground">
+          เพื่อให้ AI คำนวณแคลอรี่ต่อวันให้คุณได้อย่างแม่นยำ
+        </p>
+      </div>
 
-    <div class="rounded-lg border bg-white text-card-foreground shadow-sm w-full max-w-[400px]">
-        <div class="flex flex-col space-y-1.5 p-6">
-            <h3 class="text-2xl font-semibold leading-none tracking-tight">ตั้งค่าข้อมูลส่วนตัว</h3>
-            <p class="text-sm text-muted-foreground">เพื่อให้ AI คำนวณแคลอรี่ต่อวันให้คุณได้อย่างแม่นยำ</p>
-        </div>
+      <div class="p-6 pt-0">
+        <form id="profileForm" class="space-y-4">
+          <input type="hidden" id="userId" name="userId" />
 
-        <div class="p-6 pt-0">
-            <form id="profileForm" class="space-y-4">
-                <input type="hidden" id="userId" name="userId">
+          <div class="space-y-2">
+            <label class="text-sm font-medium" for="goal">เป้าหมายของคุณ</label>
+            <div class="relative">
+              <select
+                id="goal"
+                required
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none"
+              >
+                <option value="maintain">รักษาน้ำหนัก (Maintain)</option>
+                <option value="lose_weight">ลดน้ำหนัก (Fat Loss)</option>
+                <option value="muscle_gain">
+                  สร้างกล้ามเนื้อ (Muscle Gain)
+                </option>
+              </select>
+              <div
+                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500"
+              >
+                <svg
+                  class="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  ></path>
+                </svg>
+              </div>
+            </div>
+          </div>
 
-                <div class="space-y-2">
-                    <label class="text-sm font-medium" for="goal">เป้าหมายของคุณ</label>
-                    <div class="relative">
-                        <select id="goal" required class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none">
-                            <option value="maintain">รักษาน้ำหนัก (Maintain)</option>
-                            <option value="lose_weight">ลดน้ำหนัก (Fat Loss)</option>
-                            <option value="muscle_gain">สร้างกล้ามเนื้อ (Muscle Gain)</option>
-                        </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </div>
+          <div class="space-y-2">
+            <label class="text-sm font-medium" for="activity"
+              >กิจกรรมประจำวัน</label
+            >
+            <div class="relative">
+              <select
+                id="activity"
+                required
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none"
+              >
+                <option value="sedentary">
+                  นั่งทำงานออฟฟิศ / ไม่ออกกำลังกาย
+                </option>
+                <option value="light">ออกกำลังกายเบาๆ (1-3 วัน/สัปดาห์)</option>
+                <option value="moderate">
+                  ออกกำลังกายปานกลาง (3-5 วัน/สัปดาห์)
+                </option>
+                <option value="active">
+                  ออกกำลังกายหนัก (6-7 วัน/สัปดาห์)
+                </option>
+                <option value="very_active">
+                  นักกีฬา / งานใช้แรงงานหนักมาก
+                </option>
+              </select>
+              <div
+                class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500"
+              >
+                <svg
+                  class="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 9l-7 7-7-7"
+                  ></path>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div class="space-y-2 w-1/2">
+              <label class="text-sm font-medium" for="weight"
+                >น้ำหนัก (kg)</label
+              >
+              <input
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                id="weight"
+                type="number"
+                step="0.1"
+                placeholder="60"
+                required
+              />
+            </div>
+            <div class="space-y-2 w-1/2">
+              <label class="text-sm font-medium" for="height"
+                >ส่วนสูง (cm)</label
+              >
+              <input
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                id="height"
+                type="number"
+                placeholder="170"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="flex gap-4">
+            <div class="space-y-2 w-1/2">
+              <label class="text-sm font-medium" for="age">อายุ (ปี)</label>
+              <input
+                class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                id="age"
+                type="number"
+                placeholder="25"
+                required
+              />
+            </div>
+            <div class="space-y-2 w-1/2">
+              <label class="text-sm font-medium" for="gender">เพศ</label>
+              <div class="relative">
+                <select
+                  id="gender"
+                  class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none"
+                >
+                  <option value="male">ชาย</option>
+                  <option value="female">หญิง</option>
+                </select>
+                <div
+                  class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500"
+                >
+                  <svg
+                    class="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7"
+                    ></path>
+                  </svg>
                 </div>
+              </div>
+            </div>
+          </div>
 
-                <div class="space-y-2">
-                    <label class="text-sm font-medium" for="activity">กิจกรรมประจำวัน</label>
-                    <div class="relative">
-                        <select id="activity" required class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none">
-                            <option value="sedentary">นั่งทำงานออฟฟิศ / ไม่ออกกำลังกาย</option>
-                            <option value="light">ออกกำลังกายเบาๆ (1-3 วัน/สัปดาห์)</option>
-                            <option value="moderate">ออกกำลังกายปานกลาง (3-5 วัน/สัปดาห์)</option>
-                            <option value="active">ออกกำลังกายหนัก (6-7 วัน/สัปดาห์)</option>
-                            <option value="very_active">นักกีฬา / งานใช้แรงงานหนักมาก</option>
-                        </select>
-                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="flex gap-4">
-                    <div class="space-y-2 w-1/2">
-                        <label class="text-sm font-medium" for="weight">น้ำหนัก (kg)</label>
-                        <input class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" 
-                               id="weight" type="number" step="0.1" placeholder="60" required>
-                    </div>
-                    <div class="space-y-2 w-1/2">
-                        <label class="text-sm font-medium" for="height">ส่วนสูง (cm)</label>
-                        <input class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" 
-                               id="height" type="number" placeholder="170" required>
-                    </div>
-                </div>
-
-                <div class="flex gap-4">
-                    <div class="space-y-2 w-1/2">
-                        <label class="text-sm font-medium" for="age">อายุ (ปี)</label>
-                        <input class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" 
-                               id="age" type="number" placeholder="25" required>
-                    </div>
-                    <div class="space-y-2 w-1/2">
-                        <label class="text-sm font-medium" for="gender">เพศ</label>
-                        <div class="relative">
-                            <select id="gender" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none">
-                                <option value="male">ชาย</option>
-                                <option value="female">หญิง</option>
-                            </select>
-                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <button type="submit" id="submitBtn" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full mt-4">
-                    บันทึกข้อมูล
-                </button>
-            </form>
-        </div>
+          <button
+            type="submit"
+            id="submitBtn"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 w-full mt-4"
+          >
+            บันทึกข้อมูล
+          </button>
+        </form>
+      </div>
     </div>
 
     <script>
-        async function main() {
-            try {
-                const response = await fetch('/api/liff-id');
-                const config = await response.json();
-                await liff.init({ liffId: config.liffId });
+      async function main() {
+        try {
+          const response = await fetch("/api/liff-id");
+          const config = await response.json();
+          await liff.init({ liffId: config.liffId });
 
-                if (!liff.isLoggedIn()) {
-                    liff.login();
-                    return;
-                }
-                const profile = await liff.getProfile();
-                document.getElementById('userId').value = profile.userId;
-            } catch (err) {
-                console.error('LIFF Error:', err);
-                alert('Connection failed. Please verify LIFF ID.');
+          if (!liff.isLoggedIn()) {
+            liff.login();
+            return;
+          }
+          const profile = await liff.getProfile();
+          document.getElementById("userId").value = profile.userId;
+
+          // 🚀 Fetch ข้อมูลเก่ามาแสดง (Auto-fill)
+          const userRes = await fetch(`/api/user-profile/${profile.userId}`);
+          if (userRes.ok) {
+            const result = await userRes.json();
+            if (result.found && result.data) {
+              const d = result.data;
+              // เติมข้อมูลลง Input
+              if (d.weight) document.getElementById("weight").value = d.weight;
+              if (d.height) document.getElementById("height").value = d.height;
+              if (d.age) document.getElementById("age").value = d.age;
+              if (d.gender) document.getElementById("gender").value = d.gender;
+              if (d.activity_level)
+                document.getElementById("activity").value = d.activity_level;
+              if (d.goal) document.getElementById("goal").value = d.goal;
+
+              // เปลี่ยนปุ่มเป็น "อัปเดตข้อมูล" ให้ดูเท่ๆ
+              document.getElementById("submitBtn").innerText = "อัปเดตข้อมูล";
             }
+          }
+        } catch (err) {
+          console.error("LIFF Error:", err);
         }
-        main();
+      }
+      main();
 
-        document.getElementById('profileForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const btn = document.getElementById('submitBtn');
-            const originalText = btn.innerHTML;
-            btn.disabled = true;
-            btn.innerHTML = 'กำลังบันทึก...';
+      // (Event Listener Submit เหมือนเดิม)
+      document
+        .getElementById("profileForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+          const btn = document.getElementById("submitBtn");
+          const originalText = btn.innerHTML;
+          btn.disabled = true;
+          btn.innerHTML = "กำลังบันทึก...";
 
-            const data = {
-                userId: document.getElementById('userId').value,
-                weight: parseFloat(document.getElementById('weight').value),
-                height: parseFloat(document.getElementById('height').value),
-                age: parseInt(document.getElementById('age').value),
-                gender: document.getElementById('gender').value,
-                activity: document.getElementById('activity').value,
-                goal: document.getElementById('goal').value // ✅ ส่ง Goal ไปด้วย
-            };
+          const data = {
+            userId: document.getElementById("userId").value,
+            weight: parseFloat(document.getElementById("weight").value),
+            height: parseFloat(document.getElementById("height").value),
+            age: parseInt(document.getElementById("age").value),
+            gender: document.getElementById("gender").value,
+            activity: document.getElementById("activity").value,
+            goal: document.getElementById("goal").value,
+          };
 
-            try {
-                const res = await fetch('/api/register-liff', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
+          try {
+            const res = await fetch("/api/register-liff", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            });
 
-                if (res.ok) {
-                    liff.closeWindow();
-                } else {
-                    throw new Error('Save failed');
-                }
-            } catch (err) {
-                alert('Error: ' + err.message);
-                btn.disabled = false;
-                btn.innerHTML = originalText;
+            if (res.ok) {
+              liff.closeWindow();
+            } else {
+              throw new Error("Save failed");
             }
+          } catch (err) {
+            alert("Error: " + err.message);
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+          }
         });
     </script>
-</body>
+  </body>
 </html>
