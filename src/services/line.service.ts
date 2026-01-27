@@ -7,6 +7,42 @@ const client = new line.Client({
   channelSecret: process.env.CHANNEL_SECRET || '',
 });
 
+// ✅ 1. สร้างปุ่ม Quick Reply กลาง (ชุดคำสั่งขี้เกียจพิมพ์)
+export const MAIN_QUICK_REPLY: line.QuickReply = {
+  items: [
+    // ปุ่ม 1: เปิดกล้องทันที (ไม่ต้องกดเมนู)
+    {
+      type: "action",
+      imageUrl: "https://cdn-icons-png.flaticon.com/512/3687/3687416.png", // ไอคอนกล้อง (Optional)
+      action: { type: "camera", label: "📸 ถ่ายรูปอาหาร" }
+    },
+    // ปุ่ม 2: สรุปแคล
+    {
+      type: "action",
+      imageUrl: "https://cdn-icons-png.flaticon.com/512/2936/2936758.png",
+      action: { type: "message", label: "📊 สรุปแคลวันนี้", text: "สรุปแคล" }
+    },
+    // ปุ่ม 3: เมนู 7-11 (บอทจะรู้อมื้อเอง)
+    {
+      type: "action",
+      imageUrl: "https://cdn-icons-png.flaticon.com/512/3081/3081840.png", // ไอคอนร้านสะดวกซื้อ
+      action: { type: "message", label: "🏪 แนะนำ 7-11", text: "เมนู 7-11" }
+    },
+    // ปุ่ม 4: เมนูตามสั่ง
+    {
+      type: "action",
+      imageUrl: "https://cdn-icons-png.flaticon.com/512/1046/1046751.png", // ไอคอนร้านอาหาร
+      action: { type: "message", label: "🍛 แนะนำตามสั่ง", text: "เมนูตามสั่ง" }
+    },
+    // ปุ่ม 5: เมนูทำเอง
+    {
+      type: "action",
+      imageUrl: "https://cdn-icons-png.flaticon.com/512/1830/1830839.png", // ไอคอนคนทำอาหาร
+      action: { type: "message", label: "👩‍🍳 แนะนำทำเอง", text: "เมนูทำเอง" }
+    }
+  ]
+};
+
 export const getContent = async (messageId: string): Promise<Buffer> => {
     const stream = await client.getMessageContent(messageId);
     const chunks: Buffer[] = [];
@@ -65,6 +101,7 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
   const flexMsg: line.FlexMessage = {
     type: "flex",
     altText: `Analysis: ${data.total_calories} kcal`,
+    quickReply: MAIN_QUICK_REPLY,
     contents: {
       type: "bubble",
       size: "kilo", // ขนาดกำลังดีเหมือน Card
@@ -182,6 +219,7 @@ export const replyDailySummary = async (replyToken: string, logs: any[], totalCa
   const flexMsg: line.FlexMessage = {
     type: "flex",
     altText: "Daily Summary",
+    quickReply: MAIN_QUICK_REPLY,
     contents: {
       type: "bubble",
       size: "kilo",
@@ -369,6 +407,7 @@ export const replyMenuRecommendation = async (replyToken: string, data: any, cat
   await client.replyMessage(replyToken, {
     type: "flex",
     altText: `Recommended: ${category}`,
+    quickReply: MAIN_QUICK_REPLY,
     contents: { type: "carousel", contents: bubbles }
   });
 };
