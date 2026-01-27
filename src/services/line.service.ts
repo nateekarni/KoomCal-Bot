@@ -7,6 +7,8 @@ const client = new line.Client({
   channelSecret: process.env.CHANNEL_SECRET || "",
 });
 
+const LIFF_REGISTER_URL = `https://liff.line.me/${process.env.LIFF_ID}`;
+
 export const getContent = async (messageId: string): Promise<Buffer> => {
   const stream = await client.getMessageContent(messageId);
   const chunks: Buffer[] = [];
