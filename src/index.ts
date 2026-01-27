@@ -7,20 +7,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// --- ⚙️ CONFIGURATION ---
-// แก้ไข: สร้าง Config Object แบบธรรมดา (ไม่ต้องระบุ Type เจาะจง เพื่อให้ใช้ได้กับทั้ง Client และ Middleware)
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
   channelSecret: process.env.CHANNEL_SECRET || '',
 };
 
-// ... (Supabase config เหมือนเดิม)
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_KEY || ''
 );
 
-// ... (Allowed Users เหมือนเดิม)
 const ALLOWED_USER_IDS = (process.env.ALLOWED_USER_IDS || '')
   .split(',')
   .map((id) => id.trim())
@@ -28,7 +24,14 @@ const ALLOWED_USER_IDS = (process.env.ALLOWED_USER_IDS || '')
 
 const app: Application = express();
 
-// --- 🚀 ROUTE: Webhook ---
+// ✅ 1. เพิ่ม Health Check Route (หน้าแรก)
+// ถ้าเข้าเว็บผ่าน Browser ต้องเจอหน้านี้
+app.get('/', (req: Request, res: Response) => {
+  res.status(200).send('🤖 KoomCal Bot is running! (Ready to accept LINE webhook)');
+});
+
+// ✅ 2. Webhook Route (สำหรับ LINE)
+// สังเกตว่าเราใช้ config as ... เพื่อแก้ Error TS
 app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (req: Request, res: Response) => {
   try {
     const events: line.WebhookEvent[] = req.body.events;
@@ -42,15 +45,12 @@ app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (re
   }
 });
 
-// --- 🧠 EVENT HANDLER ---
 async function handleEvent(event: line.WebhookEvent) {
   const userId = event.source.userId;
   if (!userId || (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId))) {
     return Promise.resolve(null);
   }
 
-  // 🛠️ สร้าง Client ตรงนี้ โดยใช้ config ตัวเดิม
-  // แก้ไข: cast config เป็น ClientConfig เพื่อบอก TS ว่า "ฉันมี Token นะ"
   const client = new line.Client(config as line.ClientConfig);
 
   if (event.type === 'message') {
@@ -70,14 +70,12 @@ async function handleEvent(event: line.WebhookEvent) {
     else if (event.message.type === 'text') {
       const text = event.message.text;
       if (text.startsWith('บันทึก:')) {
-        await handleSaveCommand(client, userId, event.replyToken, text); // ส่ง client เข้าไป
+        await handleSaveCommand(client, userId, event.replyToken, text);
       }
     }
   }
 }
 
-// --- 💾 DATABASE LOGIC ---
-// แก้ไข: รับ client เข้ามาเป็น Parameter
 async function handleSaveCommand(client: line.Client, userId: string, replyToken: string, text: string) {
   const regex = /บันทึก:\s*(.+?)\s*\((\d+)\s*kcal\)\s*-\s*(.+)/;
   const match = text.match(regex);
@@ -89,43 +87,30 @@ async function handleSaveCommand(client: line.Client, userId: string, replyToken
 
     try {
       const { error } = await supabase.from('KoomCal_FoodLogs').insert([
-        {
-          user_id: userId,
-          food_name: foodName,
-          calories: calories,
-          meal_type: mealType,
-        },
+        { user_id: userId, food_name: foodName, calories: calories, meal_type: mealType },
       ]);
-
       if (error) throw error;
-
       await client.replyMessage(replyToken, {
         type: 'text',
         text: `✅ บันทึกเรียบร้อย!\n🍽️ ${foodName}\n🔥 ${calories} kcal\n📅 มื้อ: ${mealType}`,
       });
-
     } catch (err: any) {
       console.error('Supabase Error:', err);
-      await client.replyMessage(replyToken, {
-        type: 'text',
-        text: '❌ บันทึกข้อมูลไม่สำเร็จ: ' + err.message,
-      });
+      await client.replyMessage(replyToken, { type: 'text', text: '❌ บันทึกไม่สำเร็จ: ' + err.message });
     }
   } else {
-    await client.replyMessage(replyToken, {
-      type: 'text',
-      text: '⚠️ รูปแบบข้อมูลไม่ถูกต้อง',
-    });
+    await client.replyMessage(replyToken, { type: 'text', text: '⚠️ รูปแบบข้อมูลไม่ถูกต้อง' });
   }
 }
 
-// --- 🔌 SERVER SETUP ---
+// ✅ 3. Export App ให้ Vercel เข้าใจ
 const port = process.env.PORT || 3000;
-
+// ถ้าเป็น Vercel ไม่ต้องสั่ง app.listen เอง ให้ export ไปเลย
 if (process.env.VERCEL) {
-  module.exports = app;
+    // สำคัญ: ต้องใช้ module.exports สำหรับ Vercel Node.js runtime
+    module.exports = app;
 } else {
-  app.listen(port, () => {
-    console.log(`Server is running on port ${port}`);
-  });
+    app.listen(port, () => {
+        console.log(`Server running on port ${port}`);
+    });
 }
