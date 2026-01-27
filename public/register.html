@@ -40,6 +40,20 @@
                 <input type="hidden" id="userId" name="userId">
 
                 <div class="space-y-2">
+                    <label class="text-sm font-medium" for="goal">เป้าหมายของคุณ</label>
+                    <div class="relative">
+                        <select id="goal" required class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none">
+                            <option value="maintain">รักษาน้ำหนัก (Maintain)</option>
+                            <option value="lose_weight">ลดน้ำหนัก (Fat Loss)</option>
+                            <option value="muscle_gain">สร้างกล้ามเนื้อ (Muscle Gain)</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
                     <label class="text-sm font-medium" for="activity">กิจกรรมประจำวัน</label>
                     <div class="relative">
                         <select id="activity" required class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 appearance-none">
@@ -48,7 +62,7 @@
                             <option value="moderate">ออกกำลังกายปานกลาง (3-5 วัน/สัปดาห์)</option>
                             <option value="active">ออกกำลังกายหนัก (6-7 วัน/สัปดาห์)</option>
                             <option value="very_active">นักกีฬา / งานใช้แรงงานหนักมาก</option>
-                            </select>
+                        </select>
                         <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
                             <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
                         </div>
@@ -128,7 +142,8 @@
                 height: parseFloat(document.getElementById('height').value),
                 age: parseInt(document.getElementById('age').value),
                 gender: document.getElementById('gender').value,
-                activity: document.getElementById('activity').value // ส่งค่า activity ไปด้วย
+                activity: document.getElementById('activity').value,
+                goal: document.getElementById('goal').value // ✅ ส่ง Goal ไปด้วย
             };
 
             try {

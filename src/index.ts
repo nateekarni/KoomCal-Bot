@@ -69,15 +69,23 @@ app.get('/api/liff-id', (req, res) => { res.json({ liffId: process.env.LIFF_ID }
 
 // 4. API: Register from LIFF
 app.post('/api/register-liff', async (req, res) => {
-  const { userId, weight, height, age, gender, activity } = req.body;
+  // ✅ รับค่า goal มาด้วย
+  const { userId, weight, height, age, gender, activity, goal } = req.body;
   try {
-    const tdee = await userService.registerUser(userId, weight, height, age, gender, activity);
+    // ✅ ส่ง goal ไปให้ service
+    const tdee = await userService.registerUser(userId, weight, height, age, gender, activity, goal);
     
     // Push Message Confirm
     const client = new line.Client(config as line.ClientConfig);
+    
+    // แปลง goal เป็นภาษาไทยสวยๆ เพื่อตอบกลับ
+    let goalText = 'รักษาน้ำหนัก';
+    if (goal === 'lose_weight') goalText = 'ลดน้ำหนัก';
+    else if (goal === 'muscle_gain') goalText = 'สร้างกล้ามเนื้อ';
+
     await client.pushMessage(userId, {
         type: 'text',
-        text: `✅ ลงทะเบียนสำเร็จ!\n🔥 TDEE ของคุณคือ: ${tdee} kcal/วัน\n\nเริ่มใช้งานโดยการถ่ายรูปอาหาร หรือพิมพ์เมนูได้เลยครับ!`,
+        text: `✅ ลงทะเบียนสำเร็จ!\n🎯 เป้าหมาย: ${goalText}\n🔥 TDEE แนะนำ: ${tdee} kcal/วัน\n\nเริ่มใช้งานโดยการถ่ายรูปอาหาร หรือพิมพ์เมนูได้เลยครับ!`,
         quickReply: MAIN_QUICK_REPLY
     });
 

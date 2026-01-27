@@ -12,28 +12,28 @@ export const MAIN_QUICK_REPLY: line.QuickReply = {
   items: [
     {
       type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/512/3687/3687416.png",
-      action: { type: "camera", label: "📸 ถ่ายรูปอาหาร" }
+      imageUrl: "https://cdn-icons-png.flaticon.com/128/10473/10473491.png",
+      action: { type: "camera", label: " ถ่ายรูปอาหาร" }
     },
     {
       type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/512/2936/2936758.png",
-      action: { type: "message", label: "📊 สรุปแคลวันนี้", text: "สรุปแคล" }
+      imageUrl: "https://cdn-icons-png.flaticon.com/128/10473/10473357.png",
+      action: { type: "message", label: " สรุปแคลวันนี้", text: "สรุปแคล" }
     },
     {
       type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/512/3081/3081840.png",
-      action: { type: "message", label: "🏪 เมนู 7-11", text: "เมนู 7-11" }
+      imageUrl: "https://cdn-icons-png.flaticon.com/128/15106/15106158.png",
+      action: { type: "message", label: " เมนู 7-11", text: "เมนู 7-11" }
     },
     {
       type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/512/1046/1046751.png",
-      action: { type: "message", label: "🍛 เมนูตามสั่ง", text: "เมนูตามสั่ง" }
+      imageUrl: "https://cdn-icons-png.flaticon.com/128/8209/8209353.png",
+      action: { type: "message", label: " เมนูตามสั่ง", text: "เมนูตามสั่ง" }
     },
     {
       type: "action",
-      imageUrl: "https://cdn-icons-png.flaticon.com/512/1830/1830839.png",
-      action: { type: "message", label: "👩‍🍳 เมนูทำเอง", text: "เมนูทำเอง" }
+      imageUrl: "https://cdn-icons-png.flaticon.com/128/9273/9273847.png",
+      action: { type: "message", label: " เมนูทำเอง", text: "เมนูทำเอง" }
     }
   ]
 };
