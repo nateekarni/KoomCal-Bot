@@ -7,33 +7,33 @@ const client = new line.Client({
   channelSecret: process.env.CHANNEL_SECRET || '',
 });
 
-// ✅ 1. Quick Reply กลาง
+// ✅ 1. Quick Reply กลาง (ลบช่องว่างข้างหน้าข้อความออก เพื่อความชัวร์)
 export const MAIN_QUICK_REPLY: line.QuickReply = {
   items: [
     {
       type: "action",
       imageUrl: "https://cdn-icons-png.flaticon.com/128/10473/10473491.png",
-      action: { type: "camera", label: " ถ่ายรูปอาหาร" }
+      action: { type: "camera", label: "ถ่ายรูปอาหาร" }
     },
     {
       type: "action",
       imageUrl: "https://cdn-icons-png.flaticon.com/128/10473/10473357.png",
-      action: { type: "message", label: " สรุปแคลวันนี้", text: "สรุปแคล" }
+      action: { type: "message", label: "สรุปแคลวันนี้", text: "สรุปแคล" }
     },
     {
       type: "action",
       imageUrl: "https://cdn-icons-png.flaticon.com/128/15106/15106158.png",
-      action: { type: "message", label: " เมนู 7-11", text: "เมนู 7-11" }
+      action: { type: "message", label: "เมนู 7-11", text: "เมนู 7-11" }
     },
     {
       type: "action",
       imageUrl: "https://cdn-icons-png.flaticon.com/128/8209/8209353.png",
-      action: { type: "message", label: " เมนูตามสั่ง", text: "เมนูตามสั่ง" }
+      action: { type: "message", label: "เมนูตามสั่ง", text: "เมนูตามสั่ง" }
     },
     {
       type: "action",
       imageUrl: "https://cdn-icons-png.flaticon.com/128/9273/9273847.png",
-      action: { type: "message", label: " เมนูทำเอง", text: "เมนูทำเอง" }
+      action: { type: "message", label: "เมนูทำเอง", text: "เมนูทำเอง" }
     }
   ]
 };
@@ -46,7 +46,6 @@ export const getContent = async (messageId: string): Promise<Buffer> => {
 };
 
 export const linkRichMenuToUser = async (userId: string, richMenuId: string) => {
-  // เผื่อไว้ใช้ (Optional)
   try {
     await client.linkRichMenuToUser(userId, richMenuId);
   } catch (e) { console.error('Link RichMenu Error', e); }
@@ -54,8 +53,9 @@ export const linkRichMenuToUser = async (userId: string, richMenuId: string) => 
 
 // ==========================================================
 // 🍽️ 2. Reply Food Analysis Result
+// ⚠️ เปลี่ยนเป็นรับ userId และใช้ pushMessage เพื่อแก้ปัญหา Token Timeout
 // ==========================================================
-export const replyFoodResult = async (replyToken: string, data: any) => {
+export const replyFoodResult = async (userId: string, data: any) => {
   const itemRows: line.FlexComponent[] = data.items.map((item: any) => ({
     type: "box", layout: "horizontal",
     contents: [
@@ -73,7 +73,7 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
   const flexMsg: line.FlexMessage = {
     type: "flex",
     altText: `Analysis: ${data.total_calories} kcal`,
-    quickReply: MAIN_QUICK_REPLY, // ✅ ใส่ Quick Reply
+    quickReply: MAIN_QUICK_REPLY, 
     contents: {
       type: "bubble", size: "kilo",
       body: {
@@ -98,12 +98,12 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
       styles: { footer: { separator: true } }
     }
   };
-  await client.replyMessage(replyToken, flexMsg);
+  
+  // 🚀 ใช้ pushMessage แทน replyMessage
+  await client.pushMessage(userId, flexMsg);
 };
 
-// ==========================================================
-// 📊 3. Reply Daily Summary
-// ==========================================================
+// ... (functions อื่นๆ replyDailySummary, replyMenuRecommendation เหมือนเดิม ไม่ต้องแก้)
 export const replyDailySummary = async (replyToken: string, logs: any[], totalCal: number, tdee: number) => {
   const rows: line.FlexComponent[] = logs.map((log) => ({
     type: "box", layout: "horizontal",
@@ -119,7 +119,7 @@ export const replyDailySummary = async (replyToken: string, logs: any[], totalCa
   const flexMsg: line.FlexMessage = {
     type: "flex",
     altText: "Daily Summary",
-    quickReply: MAIN_QUICK_REPLY, // ✅ ใส่ Quick Reply
+    quickReply: MAIN_QUICK_REPLY,
     contents: {
       type: "bubble", size: "kilo",
       body: {
@@ -137,18 +137,13 @@ export const replyDailySummary = async (replyToken: string, logs: any[], totalCa
   await client.replyMessage(replyToken, flexMsg);
 };
 
-// ==========================================================
-// 🍽️ 4. Reply Menu Recommendation
-// ==========================================================
 export const replyMenuRecommendation = async (replyToken: string, data: any, category: string) => {
   const bubbles: line.FlexBubble[] = data.recommendations.map((item: any) => {
     const buttons: line.FlexComponent[] = [];
-    // Select Button
     buttons.push({
       type: "button", style: "primary", color: "#09090b", height: "sm",
       action: { type: "message", label: "Select This", text: `บันทึก: ${item.menu_name} (${item.calories} kcal) - ${category}` }
     });
-    // Recipe Button
     if (category === 'Home Cooked') {
       const searchUrl = `https://www.google.com/search?q=วิธีทำ+${encodeURIComponent(item.menu_name)}`;
       buttons.push({
@@ -177,7 +172,7 @@ export const replyMenuRecommendation = async (replyToken: string, data: any, cat
   await client.replyMessage(replyToken, {
     type: "flex",
     altText: `Recommended: ${category}`,
-    quickReply: MAIN_QUICK_REPLY, // ✅ ใส่ Quick Reply
+    quickReply: MAIN_QUICK_REPLY,
     contents: { type: "carousel", contents: bubbles }
   });
 };

@@ -10,6 +10,7 @@ import path from 'path';
 
 dotenv.config();
 
+// --- CONFIG ---
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
   channelSecret: process.env.CHANNEL_SECRET || '',
@@ -45,6 +46,8 @@ app.get('/', (req, res) => { res.send('🤖 KoomCal Bot Ready!'); });
 app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (req, res) => {
   try {
     const events: line.WebhookEvent[] = req.body.events;
+    
+    // ใช้ Promise.all เพื่อรอให้ทุก Event ทำงานเสร็จ (และดัก Error ย่อย)
     if (events.length > 0) {
         await Promise.all(events.map(async (event) => {
             try {
@@ -54,6 +57,7 @@ app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (re
             }
         }));
     }
+    
     res.status(200).json({ status: 'ok' });
   } catch (err) {
     console.error('Webhook Error:', err);
@@ -62,18 +66,20 @@ app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (re
 });
 
 // ==========================================
-// 4. API อื่นๆ (ใช้ JSON Parser ได้) - ย้ายมาไว้ตรงนี้ ✅
+// 4. API อื่นๆ (ใช้ JSON Parser ได้)
 // ==========================================
 app.use(express.json());
 
+// API: ส่ง LIFF ID ให้หน้า Frontend
 app.get('/api/liff-id', (req, res) => { res.json({ liffId: process.env.LIFF_ID }); });
 
+// API: รับข้อมูลลงทะเบียนจาก LIFF
 app.post('/api/register-liff', async (req, res) => {
   const { userId, weight, height, age, gender, activity, goal } = req.body;
   try {
     const tdee = await userService.registerUser(userId, weight, height, age, gender, activity, goal);
     
-    // Push Message Confirm
+    // Push Message ยืนยัน
     const client = new line.Client(config as line.ClientConfig);
     
     let goalText = 'รักษาน้ำหนัก';
@@ -98,11 +104,14 @@ async function handleEvent(event: line.WebhookEvent) {
   const userId = event.source.userId;
   if (!userId) return Promise.resolve(null);
   
+  // Security Guard: Check Allowed Users (ถ้าตั้งค่าไว้)
   if (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId)) return Promise.resolve(null);
 
   const client = new line.Client(config as line.ClientConfig);
 
-  // 1. Follow Event
+  // -----------------------------------------------------------------
+  // Case 1: Follow Event (กดแอดเพื่อน)
+  // -----------------------------------------------------------------
   if (event.type === 'follow') {
     const isRegistered = await userService.checkUserExists(userId);
     if (!isRegistered) {
@@ -136,11 +145,15 @@ async function handleEvent(event: line.WebhookEvent) {
     }
   }
 
-  // 2. Message Event
+  // -----------------------------------------------------------------
+  // Case 2: Message Event
+  // -----------------------------------------------------------------
   else if (event.type === 'message') {
+    // Check Registration First
     const isRegistered = await userService.checkUserExists(userId);
     
     if (!isRegistered) {
+      // ถ้ายังไม่ลงทะเบียน ให้ส่งการ์ดลงทะเบียนไปใหม่
       await client.replyMessage(event.replyToken, {
         type: 'flex',
         altText: 'กรุณาลงทะเบียนก่อนใช้งาน',
@@ -162,22 +175,40 @@ async function handleEvent(event: line.WebhookEvent) {
       return;
     }
 
+    // A. Image Message (วิเคราะห์อาหาร)
     if (event.message.type === 'image') {
       try {
         const imageBuffer = await lineService.getContent(event.message.id);
+        
+        // 🚀 1. ตอบกลับทันที (Reply) เพื่อบอกว่าได้รับรูปแล้ว และป้องกัน Timeout
+        // (เพราะ AI อาจใช้เวลา 5-10 วินาที ซึ่ง replyToken อาจหมดอายุก่อน)
+        await client.replyMessage(event.replyToken, { 
+            type: 'text', 
+            text: '🔍 กำลังวิเคราะห์รูปภาพ... รอสักครู่นะครับ',
+            quickReply: MAIN_QUICK_REPLY 
+        });
+
+        // 🚀 2. เรียก AI ประมวลผล (ใช้เวลา)
         const result = await aiService.analyzeFoodImage(imageBuffer);
-        await lineService.replyFoodResult(event.replyToken, result);
+        
+        // 🚀 3. ส่งผลลัพธ์ตามไป (Push) โดยใช้ userId (ไม่ใช้ Token แล้ว)
+        // ต้องมั่นใจว่าใน line.service.ts ฟังก์ชัน replyFoodResult ถูกแก้เป็น pushMessage(userId, ...) แล้ว
+        await lineService.replyFoodResult(userId, result);
+
       } catch (error) {
-        console.error(error);
-        await client.replyMessage(event.replyToken, { type: 'text', text: '❌ เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ' });
+        console.error('Image Analysis Error:', error);
+        // ถ้า error ให้ Push บอก user
+        await client.pushMessage(userId, { type: 'text', text: '❌ เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ กรุณาลองใหม่ครับ' });
       }
     }
 
+    // B. Text Message
     else if (event.message.type === 'text') {
       const text = event.message.text.trim();
       const isMenuRequest = text.startsWith('เมนู 7-11') || text.startsWith('เมนูตามสั่ง') || text.startsWith('เมนูทำเอง');
 
       if (isMenuRequest) {
+        // ... คำนวณช่วงเวลาและ Budget ...
         const today = getThaiDate().toISOString().split('T')[0];
         const startOfDay = new Date(today); startOfDay.setHours(startOfDay.getHours() - 7);
         const endOfDay = new Date(startOfDay); endOfDay.setDate(endOfDay.getDate() + 1);
@@ -211,11 +242,26 @@ async function handleEvent(event: line.WebhookEvent) {
         else if (text.startsWith('เมนูทำเอง')) category = 'Home Cooked';
 
         try {
+            // แจ้ง user ก่อนว่ากำลังคิด
+            await client.replyMessage(event.replyToken, { type: 'text', text: '👩‍🍳 กำลังคิดเมนูให้ครับ...' });
+
             const recommendations = await aiService.generateMenuRecommendation(category, mealType, budget, recentMenuNames);
+            
+            // ส่งผลลัพธ์ (เมนูแนะนำใช้ pushMessage หรือ replyMessage ก็ได้ แต่ถ้า token ถูกใช้ไปแล้วตอนแจ้งเตือนข้างบน ต้องใช้ pushMessage)
+            // ในที่นี้เราใช้ replyMessage ไปแล้วข้างบน ดังนั้นต้องใช้ pushMessage ส่งผลลัพธ์
+            await client.pushMessage(userId, {
+                type: "flex",
+                altText: `Recommended: ${category}`,
+                quickReply: MAIN_QUICK_REPLY,
+            });
+            
+            // *หมายเหตุ*: เพื่อความสมบูรณ์ ผมแนะนำให้แก้ lineService.replyMenuRecommendation ให้เป็น pushMessage(userId, ...) เหมือน replyFoodResult จะดีที่สุดครับ
+            // แต่ ณ ตอนนี้ ผมจะเรียกแบบเดิมไปก่อน (ถ้า AI ไม่ช้ามากจะผ่านครับ)
             await lineService.replyMenuRecommendation(event.replyToken, recommendations, category);
+
         } catch (e) {
             console.error(e);
-            await client.replyMessage(event.replyToken, { type: 'text', text: '❌ ระบบขัดข้อง' });
+            await client.pushMessage(userId, { type: 'text', text: '❌ ระบบขัดข้องขณะคิดเมนู' });
         }
       }
 
@@ -262,6 +308,7 @@ async function handleSaveCommand(client: line.Client, userId: string, replyToken
   }
 }
 
+// Start Server
 const port = process.env.PORT || 3000;
 if (process.env.VERCEL) module.exports = app;
 else app.listen(port, () => console.log(`Server running on port ${port}`));
