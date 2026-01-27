@@ -3,24 +3,25 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// สร้าง Client แยกในนี้เพื่อให้ service เรียกใช้ได้สะดวก
 const client = new line.Client({
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
   channelSecret: process.env.CHANNEL_SECRET || '',
 });
 
 export const replyFoodResult = async (replyToken: string, data: any) => {
-  const itemRows = data.items.map((item: any) => ({
+  // ✅ 1. ระบุ Type ให้ชัดเจนว่าเป็น FlexBox
+  const itemRows: line.FlexComponent[] = data.items.map((item: any) => ({
     type: "box",
     layout: "horizontal",
     contents: [
-      { type: "text", text: `▪️ ${item.name}`, size: "sm", flex: 4, wrap: true, color: "#555555" },
-      { type: "text", text: `${item.calories}`, size: "sm", flex: 1, align: "end", weight: "bold", color: "#111111" }
+      { type: "text", text: `▪️ ${item.name}`, size: "sm", flex: 4, wrap: true, color: "#555555" } as line.FlexText,
+      { type: "text", text: `${item.calories}`, size: "sm", flex: 1, align: "end", weight: "bold", color: "#111111" } as line.FlexText
     ],
     margin: "sm"
   }));
 
-  const createMealButton = (label: string, icon: string, mealType: string, color: string) => ({
+  // ✅ 2. ระบุ Return Type ว่าฟังก์ชันนี้คืนค่าเป็น FlexButton
+  const createMealButton = (label: string, icon: string, mealType: string, color: string): line.FlexButton => ({
     type: "button",
     style: "secondary",
     height: "sm",
@@ -43,25 +44,25 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
         type: "box",
         layout: "vertical",
         contents: [
-          { type: "text", text: "🛒 ผลวิเคราะห์สินค้า", weight: "bold", size: "lg", color: "#1DB446" },
-          { type: "separator", margin: "md" },
+          { type: "text", text: "🛒 ผลวิเคราะห์สินค้า", weight: "bold", size: "lg", color: "#1DB446" } as line.FlexText,
+          { type: "separator", margin: "md" } as line.FlexSeparator,
           { 
             type: "box", 
             layout: "vertical", 
             margin: "md", 
             spacing: "xs",
             contents: itemRows 
-          },
-          { type: "separator", margin: "md" },
+          } as line.FlexBox,
+          { type: "separator", margin: "md" } as line.FlexSeparator,
           {
             type: "box",
             layout: "horizontal",
             margin: "md",
             contents: [
-              { type: "text", text: "รวมทั้งหมด", weight: "bold", size: "md", color: "#888888" },
-              { type: "text", text: `${data.total_calories} kcal`, weight: "bold", size: "xl", color: "#FF6B6E", align: "end" }
+              { type: "text", text: "รวมทั้งหมด", weight: "bold", size: "md", color: "#888888" } as line.FlexText,
+              { type: "text", text: `${data.total_calories} kcal`, weight: "bold", size: "xl", color: "#FF6B6E", align: "end" } as line.FlexText
             ]
-          }
+          } as line.FlexBox
         ]
       },
       footer: {
@@ -69,7 +70,7 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
         layout: "vertical",
         spacing: "sm",
         contents: [
-          { type: "text", text: "เลือกมื้อที่จะบันทึก 👇", size: "xs", color: "#aaaaaa", align: "center" },
+          { type: "text", text: "เลือกมื้อที่จะบันทึก 👇", size: "xs", color: "#aaaaaa", align: "center" } as line.FlexText,
           {
             type: "box",
             layout: "horizontal",
@@ -77,7 +78,7 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
               createMealButton("เช้า", "🍳", "Breakfast", "#F59E0B"),
               createMealButton("เที่ยง", "☀️", "Lunch", "#EF4444")
             ]
-          },
+          } as line.FlexBox,
           {
             type: "box",
             layout: "horizontal",
@@ -85,7 +86,7 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
               createMealButton("เย็น", "🌙", "Dinner", "#3B82F6"),
               createMealButton("ของว่าง", "🍿", "Snack", "#8B5CF6")
             ]
-          }
+          } as line.FlexBox
         ]
       }
     }
