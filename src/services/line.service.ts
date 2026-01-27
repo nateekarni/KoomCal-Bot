@@ -14,7 +14,7 @@ export const getContent = async (messageId: string): Promise<Buffer> => {
     return Buffer.concat(chunks);
 };
 
-// ✅ 1. Quick Reply (Clean Version) - ลบเว้นวรรคข้างหน้าออกทั้งหมด
+// ✅ 1. Quick Reply (Clean Version)
 export const MAIN_QUICK_REPLY: line.QuickReply = {
   items: [
     {
@@ -46,8 +46,7 @@ export const MAIN_QUICK_REPLY: line.QuickReply = {
 };
 
 // ==========================================================
-// 🍽️ 2. Reply Food Analysis Result (Bulletproof Version)
-// แก้ไขปุ่มให้ปลอดภัยต่อ API 100%
+// 🍽️ 2. Reply Food Analysis Result
 // ==========================================================
 export const replyFoodResult = async (replyToken: string, data: any) => {
   const itemRows: line.FlexComponent[] = data.items.map((item: any) => ({
@@ -58,12 +57,12 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
     ], margin: "md"
   }));
 
-  // ✅ แก้ไขปุ่ม: ใช้ style="secondary" โดยไม่กำหนด color (ใช้ Default)
+  // ✅ แก้ไขปุ่ม: ลบ property 'color' ออก 100% ป้องกัน Error 400
   const createMealButton = (label: string, icon: string, mealType: string): line.FlexButton => ({
     type: "button", 
     style: "secondary", 
     height: "sm", 
-    // color: "#f4f4f5", // <-- ลบบรรทัดนี้ออกเพื่อความชัวร์ (บางที LINE API มองว่า Secondary ห้ามใส่สี)
+    // color: "#f4f4f5",  <-- ลบบรรทัดนี้ออกแล้ว
     action: { type: "message", label: `${icon} ${label}`, text: `บันทึก: ${data.summary_name} (${data.total_calories} kcal) - ${mealType}` },
     flex: 1, margin: "xs"
   });
@@ -100,7 +99,6 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
   await client.replyMessage(replyToken, flexMsg);
 };
 
-// ... (ส่วนอื่นๆ replyDailySummary, replyMenuRecommendation เหมือนเดิม) ...
 export const replyDailySummary = async (replyToken: string, logs: any[], totalCal: number, tdee: number) => {
   const rows: line.FlexComponent[] = logs.map((log) => ({
     type: "box", layout: "horizontal",
@@ -140,7 +138,7 @@ export const replyMenuRecommendation = async (replyToken: string, data: any, cat
     if (category === 'Home Cooked') {
       const searchUrl = `https://www.google.com/search?q=วิธีทำ+${encodeURIComponent(item.menu_name)}`;
       buttons.push({
-        type: "button", style: "secondary", height: "sm", margin: "sm", // color removed
+        type: "button", style: "secondary", height: "sm", margin: "sm",
         action: { type: "uri", label: "View Recipe", uri: searchUrl }
       });
     }

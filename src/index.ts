@@ -10,7 +10,6 @@ import path from 'path';
 
 dotenv.config();
 
-// --- CONFIG ---
 const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
   channelSecret: process.env.CHANNEL_SECRET || '',
@@ -32,9 +31,9 @@ const getThaiDate = () => {
 
 const app: Application = express();
 app.use(express.static(path.join(__dirname, '../public')));
+
 app.get('/', (req, res) => { res.send('🤖 KoomCal Bot Ready!'); });
 
-// Webhook
 app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (req, res) => {
   try {
     const events: line.WebhookEvent[] = req.body.events;
@@ -80,7 +79,6 @@ app.post('/api/register-liff', async (req, res) => {
   }
 });
 
-// --- EVENT HANDLER ---
 async function handleEvent(event: line.WebhookEvent) {
   const userId = event.source.userId;
   if (!userId) return Promise.resolve(null);
@@ -142,15 +140,16 @@ async function handleEvent(event: line.WebhookEvent) {
         const imageBuffer = await lineService.getContent(event.message.id);
         const result = await aiService.analyzeFoodImage(imageBuffer);
         
-        // 🚀 Reply ฟรี (Token เดียว)
+        // 🚀 ตอบกลับด้วย Flex Message (ฟรี)
         await lineService.replyFoodResult(event.replyToken, result);
 
       } catch (error: any) {
         console.error('Image Analysis Error:', error);
+
+        // ✅ แก้ไข: เช็คก่อนว่า Error เป็น 400 หรือไม่ ถ้าใช่ แปลว่า Token เสียแล้ว ไม่ต้องตอบกลับซ้ำ
+        const isBadRequest = error.statusCode === 400 || error.originalError?.response?.status === 400;
         
-        // ✅ ป้องกันการตอบซ้ำถ้า Token ถูกใช้ไปแล้ว (เช่นเกิด 400 จากการส่งครั้งแรก)
-        // ถ้า error เป็น 400 แสดงว่า Token พังไปแล้ว ไม่ต้องพยายามส่งข้อความ Error ซ้ำ
-        if (error.response?.status !== 400) {
+        if (!isBadRequest) {
             try {
                 await client.replyMessage(event.replyToken, { 
                     type: 'text', 
@@ -158,8 +157,7 @@ async function handleEvent(event: line.WebhookEvent) {
                     quickReply: MAIN_QUICK_REPLY
                 });
             } catch (e) {
-                // ถ้าตอบกลับ Error ไม่ได้ก็ปล่อยผ่าน เพื่อไม่ให้ Logs รก
-                console.error('Failed to send error message');
+                console.error('Failed to send error message (Token might be invalid)');
             }
         }
       }
@@ -184,7 +182,7 @@ async function handleEvent(event: line.WebhookEvent) {
         let budget = tdee - consumed;
         if (budget <= 0) budget = 200;
         const recentMenuNames = [...new Set(recentLogs?.map(log => log.food_name) || [])];
-        let mealType = 'Lunch'; // Simplified logic for brevity
+        let mealType = 'Lunch';
         if (text.includes('เช้า')) mealType = 'Breakfast';
         else if (text.includes('เย็น') || text.includes('ค่ำ')) mealType = 'Dinner';
         else if (text.includes('ว่าง')) mealType = 'Snack';
@@ -198,7 +196,6 @@ async function handleEvent(event: line.WebhookEvent) {
             await lineService.replyMenuRecommendation(event.replyToken, recommendations, category);
         } catch (e) {
             console.error(e);
-            // Try to notify error
             try { await client.replyMessage(event.replyToken, { type: 'text', text: '❌ ระบบขัดข้อง', quickReply: MAIN_QUICK_REPLY }); } catch(err){}
         }
       }
