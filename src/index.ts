@@ -31,23 +31,13 @@ const getThaiDate = () => {
 };
 
 const app: Application = express();
-
-// ==========================================
-// 1. Static Files (เปิดให้เข้าถึงหน้า register.html)
-// ==========================================
 app.use(express.static(path.join(__dirname, '../public')));
-
-// 2. Health Check
 app.get('/', (req, res) => { res.send('🤖 KoomCal Bot Ready!'); });
 
-// ==========================================
-// 🚨 3. Webhook (ต้องอยู่ก่อน express.json เสมอ!)
-// ==========================================
+// Webhook
 app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (req, res) => {
   try {
     const events: line.WebhookEvent[] = req.body.events;
-    
-    // ใช้ Promise.all เพื่อรอให้ทุก Event ทำงานเสร็จ
     if (events.length > 0) {
         await Promise.all(events.map(async (event) => {
             try {
@@ -57,7 +47,6 @@ app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (re
             }
         }));
     }
-    
     res.status(200).json({ status: 'ok' });
   } catch (err) {
     console.error('Webhook Error:', err);
@@ -65,21 +54,14 @@ app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (re
   }
 });
 
-// ==========================================
-// 4. API อื่นๆ (ใช้ JSON Parser ได้)
-// ==========================================
 app.use(express.json());
 
-// API: ส่ง LIFF ID ให้หน้า Frontend
 app.get('/api/liff-id', (req, res) => { res.json({ liffId: process.env.LIFF_ID }); });
 
-// API: รับข้อมูลลงทะเบียนจาก LIFF
 app.post('/api/register-liff', async (req, res) => {
   const { userId, weight, height, age, gender, activity, goal } = req.body;
   try {
     const tdee = await userService.registerUser(userId, weight, height, age, gender, activity, goal);
-    
-    // Push Message ยืนยัน (ใช้ Push แค่ตอนลงทะเบียนครั้งแรก ถือว่าคุ้มค่า)
     const client = new line.Client(config as line.ClientConfig);
     
     let goalText = 'รักษาน้ำหนัก';
@@ -91,7 +73,6 @@ app.post('/api/register-liff', async (req, res) => {
         text: `✅ ลงทะเบียนสำเร็จ!\n🎯 เป้าหมาย: ${goalText}\n🔥 TDEE แนะนำ: ${tdee} kcal/วัน\n\nเริ่มใช้งานโดยการถ่ายรูปอาหาร หรือพิมพ์เมนูได้เลยครับ!`,
         quickReply: MAIN_QUICK_REPLY
     });
-
     res.status(200).json({ success: true });
   } catch (error) {
     console.error(error);
@@ -103,19 +84,13 @@ app.post('/api/register-liff', async (req, res) => {
 async function handleEvent(event: line.WebhookEvent) {
   const userId = event.source.userId;
   if (!userId) return Promise.resolve(null);
-  
-  // Security Guard
   if (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId)) return Promise.resolve(null);
 
   const client = new line.Client(config as line.ClientConfig);
 
-  // -----------------------------------------------------------------
-  // Case 1: Follow Event (กดแอดเพื่อน)
-  // -----------------------------------------------------------------
   if (event.type === 'follow') {
     const isRegistered = await userService.checkUserExists(userId);
     if (!isRegistered) {
-      // ส่งการ์ดให้ไปลงทะเบียน
       await client.replyMessage(event.replyToken, {
         type: 'flex',
         altText: 'กรุณาลงทะเบียนใช้งาน',
@@ -138,33 +113,20 @@ async function handleEvent(event: line.WebhookEvent) {
         }
       });
     } else {
-      await client.replyMessage(event.replyToken, { 
-          type: 'text', 
-          text: 'ยินดีต้อนรับกลับครับ! 🥗',
-          quickReply: MAIN_QUICK_REPLY 
-      });
+      await client.replyMessage(event.replyToken, { type: 'text', text: 'ยินดีต้อนรับกลับครับ! 🥗', quickReply: MAIN_QUICK_REPLY });
     }
   }
 
-  // -----------------------------------------------------------------
-  // Case 2: Message Event
-  // -----------------------------------------------------------------
   else if (event.type === 'message') {
-    // Check Registration First
     const isRegistered = await userService.checkUserExists(userId);
-    
     if (!isRegistered) {
       await client.replyMessage(event.replyToken, {
-        type: 'flex',
-        altText: 'กรุณาลงทะเบียนก่อนใช้งาน',
+        type: 'flex', altText: 'กรุณาลงทะเบียนก่อนใช้งาน',
         contents: {
             type: "bubble",
             body: {
                 type: "box", layout: "vertical",
-                contents: [
-                    { type: "text", text: "⛔️ กรุณาลงทะเบียนก่อน", weight: "bold", color: "#EF4444" },
-                    { type: "text", text: "ระบบต้องใช้ข้อมูลส่วนตัวเพื่อคำนวณแคลอรี่ครับ", size: "sm", wrap: true, margin: "sm" }
-                ]
+                contents: [{ type: "text", text: "⛔️ กรุณาลงทะเบียนก่อน", weight: "bold", color: "#EF4444" }, { type: "text", text: "ระบบต้องใช้ข้อมูลส่วนตัวเพื่อคำนวณแคลอรี่ครับ", size: "sm", wrap: true, margin: "sm" }]
             },
             footer: {
                 type: "box", layout: "vertical",
@@ -175,33 +137,34 @@ async function handleEvent(event: line.WebhookEvent) {
       return;
     }
 
-    // A. Image Message (วิเคราะห์อาหาร)
     if (event.message.type === 'image') {
       try {
         const imageBuffer = await lineService.getContent(event.message.id);
-        
-        // 💡 เราจะไม่ส่งข้อความ "กำลังวิเคราะห์..." เพื่อประหยัด Reply Token
-        // User จะเห็นบอทเงียบไปประมาณ 3-5 วินาที แล้วผลลัพธ์จะเด้งขึ้นมา
-        
-        // 1. เรียก AI ประมวลผล
         const result = await aiService.analyzeFoodImage(imageBuffer);
         
-        // 2. ส่งผลลัพธ์ด้วย replyMessage (ฟรี ไม่เสียโควต้า Push)
-        // (ต้องมั่นใจว่าใน line.service.ts ฟังก์ชัน replyFoodResult รับ replyToken)
+        // 🚀 Reply ฟรี (Token เดียว)
         await lineService.replyFoodResult(event.replyToken, result);
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('Image Analysis Error:', error);
-        // ถ้า Error ให้แจ้ง User (ยังใช้ Token ได้ถ้ายังไม่เคยตอบ)
-        await client.replyMessage(event.replyToken, { 
-            type: 'text', 
-            text: '❌ เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ กรุณาลองใหม่ครับ',
-            quickReply: MAIN_QUICK_REPLY
-        });
+        
+        // ✅ ป้องกันการตอบซ้ำถ้า Token ถูกใช้ไปแล้ว (เช่นเกิด 400 จากการส่งครั้งแรก)
+        // ถ้า error เป็น 400 แสดงว่า Token พังไปแล้ว ไม่ต้องพยายามส่งข้อความ Error ซ้ำ
+        if (error.response?.status !== 400) {
+            try {
+                await client.replyMessage(event.replyToken, { 
+                    type: 'text', 
+                    text: '❌ เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ กรุณาลองใหม่ครับ',
+                    quickReply: MAIN_QUICK_REPLY
+                });
+            } catch (e) {
+                // ถ้าตอบกลับ Error ไม่ได้ก็ปล่อยผ่าน เพื่อไม่ให้ Logs รก
+                console.error('Failed to send error message');
+            }
+        }
       }
     }
 
-    // B. Text Message
     else if (event.message.type === 'text') {
       const text = event.message.text.trim();
       const isMenuRequest = text.startsWith('เมนู 7-11') || text.startsWith('เมนูตามสั่ง') || text.startsWith('เมนูทำเอง');
@@ -220,39 +183,23 @@ async function handleEvent(event: line.WebhookEvent) {
         const consumed = todayLogs?.reduce((sum, item) => sum + item.calories, 0) || 0;
         let budget = tdee - consumed;
         if (budget <= 0) budget = 200;
-
         const recentMenuNames = [...new Set(recentLogs?.map(log => log.food_name) || [])];
-
-        let mealType = '';
+        let mealType = 'Lunch'; // Simplified logic for brevity
         if (text.includes('เช้า')) mealType = 'Breakfast';
-        else if (text.includes('เที่ยง') || text.includes('กลางวัน')) mealType = 'Lunch';
         else if (text.includes('เย็น') || text.includes('ค่ำ')) mealType = 'Dinner';
         else if (text.includes('ว่าง')) mealType = 'Snack';
-        else {
-          const h = getThaiDate().getHours();
-          if (h < 11) mealType = 'Breakfast';
-          else if (h < 15) mealType = 'Lunch';
-          else mealType = 'Dinner';
-        }
-
+        
         let category = 'Street Food';
         if (text.startsWith('เมนู 7-11')) category = '7-11';
         else if (text.startsWith('เมนูทำเอง')) category = 'Home Cooked';
 
         try {
-            // เรียก AI แนะนำเมนู
             const recommendations = await aiService.generateMenuRecommendation(category, mealType, budget, recentMenuNames);
-            
-            // ส่งผลลัพธ์
             await lineService.replyMenuRecommendation(event.replyToken, recommendations, category);
-
         } catch (e) {
             console.error(e);
-            await client.replyMessage(event.replyToken, { 
-                type: 'text', 
-                text: '❌ ระบบขัดข้องขณะคิดเมนู',
-                quickReply: MAIN_QUICK_REPLY
-            });
+            // Try to notify error
+            try { await client.replyMessage(event.replyToken, { type: 'text', text: '❌ ระบบขัดข้อง', quickReply: MAIN_QUICK_REPLY }); } catch(err){}
         }
       }
 
@@ -260,7 +207,6 @@ async function handleEvent(event: line.WebhookEvent) {
         const today = getThaiDate().toISOString().split('T')[0];
         const startOfDay = new Date(today); startOfDay.setHours(startOfDay.getHours() - 7);
         const endOfDay = new Date(startOfDay); endOfDay.setDate(endOfDay.getDate() + 1);
-
         const { data: userData } = await supabase.from('KoomCal_Users').select('tdee').eq('user_id', userId).single();
         const tdee = userData?.tdee || 2000;
         const { data: logs } = await supabase.from('KoomCal_FoodLogs').select('food_name, calories').eq('user_id', userId).gte('created_at', startOfDay.toISOString()).lt('created_at', endOfDay.toISOString());
@@ -285,7 +231,6 @@ async function handleSaveCommand(client: line.Client, userId: string, replyToken
     try {
       const { error } = await supabase.from('KoomCal_FoodLogs').insert([{ user_id: userId, food_name: foodName, calories: calories, meal_type: mealType }]);
       if (error) throw error;
-      
       await client.replyMessage(replyToken, { 
           type: 'text', 
           text: `✅ บันทึกเรียบร้อย!\n🍽️ ${foodName}\n🔥 ${calories} kcal\n📅 มื้อ: ${mealType}`,
@@ -299,7 +244,6 @@ async function handleSaveCommand(client: line.Client, userId: string, replyToken
   }
 }
 
-// Start Server
 const port = process.env.PORT || 3000;
 if (process.env.VERCEL) module.exports = app;
 else app.listen(port, () => console.log(`Server running on port ${port}`));

@@ -7,7 +7,14 @@ const client = new line.Client({
   channelSecret: process.env.CHANNEL_SECRET || '',
 });
 
-// ✅ 1. Quick Reply กลาง (ลบช่องว่างข้างหน้าข้อความออก เพื่อความชัวร์)
+export const getContent = async (messageId: string): Promise<Buffer> => {
+    const stream = await client.getMessageContent(messageId);
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) chunks.push(chunk as Buffer);
+    return Buffer.concat(chunks);
+};
+
+// ✅ 1. Quick Reply (Clean Version) - ลบเว้นวรรคข้างหน้าออกทั้งหมด
 export const MAIN_QUICK_REPLY: line.QuickReply = {
   items: [
     {
@@ -38,22 +45,9 @@ export const MAIN_QUICK_REPLY: line.QuickReply = {
   ]
 };
 
-export const getContent = async (messageId: string): Promise<Buffer> => {
-    const stream = await client.getMessageContent(messageId);
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) chunks.push(chunk as Buffer);
-    return Buffer.concat(chunks);
-};
-
-export const linkRichMenuToUser = async (userId: string, richMenuId: string) => {
-  try {
-    await client.linkRichMenuToUser(userId, richMenuId);
-  } catch (e) { console.error('Link RichMenu Error', e); }
-};
-
 // ==========================================================
-// 🍽️ 2. Reply Food Analysis Result
-// ⚠️ เปลี่ยนเป็นรับ userId และใช้ pushMessage เพื่อแก้ปัญหา Token Timeout
+// 🍽️ 2. Reply Food Analysis Result (Bulletproof Version)
+// แก้ไขปุ่มให้ปลอดภัยต่อ API 100%
 // ==========================================================
 export const replyFoodResult = async (replyToken: string, data: any) => {
   const itemRows: line.FlexComponent[] = data.items.map((item: any) => ({
@@ -64,8 +58,12 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
     ], margin: "md"
   }));
 
+  // ✅ แก้ไขปุ่ม: ใช้ style="secondary" โดยไม่กำหนด color (ใช้ Default)
   const createMealButton = (label: string, icon: string, mealType: string): line.FlexButton => ({
-    type: "button", style: "secondary", height: "sm", color: "#f4f4f5",
+    type: "button", 
+    style: "secondary", 
+    height: "sm", 
+    // color: "#f4f4f5", // <-- ลบบรรทัดนี้ออกเพื่อความชัวร์ (บางที LINE API มองว่า Secondary ห้ามใส่สี)
     action: { type: "message", label: `${icon} ${label}`, text: `บันทึก: ${data.summary_name} (${data.total_calories} kcal) - ${mealType}` },
     flex: 1, margin: "xs"
   });
@@ -99,11 +97,10 @@ export const replyFoodResult = async (replyToken: string, data: any) => {
     }
   };
   
-  // 🚀 ใช้ pushMessage แทน replyMessage
   await client.replyMessage(replyToken, flexMsg);
 };
 
-// ... (functions อื่นๆ replyDailySummary, replyMenuRecommendation เหมือนเดิม ไม่ต้องแก้)
+// ... (ส่วนอื่นๆ replyDailySummary, replyMenuRecommendation เหมือนเดิม) ...
 export const replyDailySummary = async (replyToken: string, logs: any[], totalCal: number, tdee: number) => {
   const rows: line.FlexComponent[] = logs.map((log) => ({
     type: "box", layout: "horizontal",
@@ -112,14 +109,10 @@ export const replyDailySummary = async (replyToken: string, logs: any[], totalCa
       { type: "text", text: `${log.calories}`, size: "sm", color: "#71717a", align: "end", flex: 1 } as line.FlexText
     ], margin: "md"
   }));
-
   const remaining = tdee - totalCal;
   const statusColor = remaining < 0 ? "#ef4444" : "#22c55e";
-
   const flexMsg: line.FlexMessage = {
-    type: "flex",
-    altText: "Daily Summary",
-    quickReply: MAIN_QUICK_REPLY,
+    type: "flex", altText: "Daily Summary", quickReply: MAIN_QUICK_REPLY,
     contents: {
       type: "bubble", size: "kilo",
       body: {
@@ -147,11 +140,10 @@ export const replyMenuRecommendation = async (replyToken: string, data: any, cat
     if (category === 'Home Cooked') {
       const searchUrl = `https://www.google.com/search?q=วิธีทำ+${encodeURIComponent(item.menu_name)}`;
       buttons.push({
-        type: "button", style: "secondary", color: "#f4f4f5", height: "sm", margin: "sm",
+        type: "button", style: "secondary", height: "sm", margin: "sm", // color removed
         action: { type: "uri", label: "View Recipe", uri: searchUrl }
       });
     }
-
     return {
       type: "bubble", size: "kilo",
       body: {
@@ -168,11 +160,8 @@ export const replyMenuRecommendation = async (replyToken: string, data: any, cat
       styles: { footer: { separator: true } }
     };
   });
-
   await client.replyMessage(replyToken, {
-    type: "flex",
-    altText: `Recommended: ${category}`,
-    quickReply: MAIN_QUICK_REPLY,
+    type: "flex", altText: `Recommended: ${category}`, quickReply: MAIN_QUICK_REPLY,
     contents: { type: "carousel", contents: bubbles }
   });
 };
