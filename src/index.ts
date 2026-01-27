@@ -8,27 +8,28 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // --- ⚙️ CONFIGURATION ---
-const config: line.MiddlewareConfig = {
+// แก้ไข: สร้าง Config Object แบบธรรมดา (ไม่ต้องระบุ Type เจาะจง เพื่อให้ใช้ได้กับทั้ง Client และ Middleware)
+const config = {
   channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
   channelSecret: process.env.CHANNEL_SECRET || '',
 };
 
+// ... (Supabase config เหมือนเดิม)
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_KEY || ''
 );
 
-// 🛡️ SECURITY: โหลด Whitelist จาก Env (แยกด้วย comma)
-// ตัวอย่าง Env: "U12345,U67890" -> แปลงเป็น ["U12345", "U67890"]
+// ... (Allowed Users เหมือนเดิม)
 const ALLOWED_USER_IDS = (process.env.ALLOWED_USER_IDS || '')
   .split(',')
-  .map((id) => id.trim()) // ตัดช่องว่างหน้าหลังออกกันพลาด
-  .filter((id) => id.length > 0); // ตัดค่าว่างทิ้ง
+  .map((id) => id.trim())
+  .filter((id) => id.length > 0);
 
 const app: Application = express();
 
 // --- 🚀 ROUTE: Webhook ---
-app.post('/webhook', line.middleware(config), async (req: Request, res: Response) => {
+app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (req: Request, res: Response) => {
   try {
     const events: line.WebhookEvent[] = req.body.events;
     if (events.length > 0) {
@@ -43,20 +44,18 @@ app.post('/webhook', line.middleware(config), async (req: Request, res: Response
 
 // --- 🧠 EVENT HANDLER ---
 async function handleEvent(event: line.WebhookEvent) {
-  // 1. 🛡️ Security Check: ตรวจสอบสิทธิ์ผู้ใช้
   const userId = event.source.userId;
   if (!userId || (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId))) {
-    console.warn(`Blocked unauthorized access from: ${userId}`);
-    // (Optional) อาจจะตอบกลับไปว่า "คุณไม่มีสิทธิ์ใช้งาน" ก็ได้ แต่แนะนำให้เงียบไว้ดีกว่า
     return Promise.resolve(null);
   }
 
-  // 2. จัดการข้อความ
+  // 🛠️ สร้าง Client ตรงนี้ โดยใช้ config ตัวเดิม
+  // แก้ไข: cast config เป็น ClientConfig เพื่อบอก TS ว่า "ฉันมี Token นะ"
+  const client = new line.Client(config as line.ClientConfig);
+
   if (event.type === 'message') {
-    // 📸 กรณีส่งรูปภาพ (วิเคราะห์แคลอรี่)
     if (event.message.type === 'image') {
       try {
-        // แจ้งเตือน Loading (ถ้าทำได้) หรือปล่อยให้ User รอสักครู่
         const imageBuffer = await lineService.getContent(event.message.id);
         const result = await aiService.analyzeFoodImage(imageBuffer);
         await lineService.replyFoodResult(event.replyToken, result);
@@ -64,51 +63,42 @@ async function handleEvent(event: line.WebhookEvent) {
         console.error('AI Error:', error);
         await client.replyMessage(event.replyToken, {
           type: 'text',
-          text: '❌ เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ กรุณาลองใหม่อีกครั้ง',
+          text: '❌ เกิดข้อผิดพลาดในการวิเคราะห์รูปภาพ',
         });
       }
     }
-
-    // 📝 กรณีส่งข้อความ (คำสั่งบันทึก)
-    // รูปแบบ: "บันทึก: ชื่อเมนู (xxx kcal) - MealType"
     else if (event.message.type === 'text') {
       const text = event.message.text;
-
       if (text.startsWith('บันทึก:')) {
-        await handleSaveCommand(userId, event.replyToken, text);
+        await handleSaveCommand(client, userId, event.replyToken, text); // ส่ง client เข้าไป
       }
     }
   }
 }
 
-// --- 💾 DATABASE LOGIC (Supabase) ---
-async function handleSaveCommand(userId: string, replyToken: string, text: string) {
-  // Regex แกะข้อความ: "บันทึก: ข้าวมันไก่ (600 kcal) - Lunch"
+// --- 💾 DATABASE LOGIC ---
+// แก้ไข: รับ client เข้ามาเป็น Parameter
+async function handleSaveCommand(client: line.Client, userId: string, replyToken: string, text: string) {
   const regex = /บันทึก:\s*(.+?)\s*\((\d+)\s*kcal\)\s*-\s*(.+)/;
   const match = text.match(regex);
-
-  const client = new line.Client(config);
 
   if (match) {
     const foodName = match[1];
     const calories = parseInt(match[2]);
-    const mealType = match[3]; // Breakfast, Lunch, etc.
+    const mealType = match[3];
 
     try {
-      // Insert ลง Supabase
       const { error } = await supabase.from('KoomCal_FoodLogs').insert([
         {
           user_id: userId,
           food_name: foodName,
           calories: calories,
           meal_type: mealType,
-          // created_at จะ auto generate เอง
         },
       ]);
 
       if (error) throw error;
 
-      // ตอบกลับความสำเร็จ
       await client.replyMessage(replyToken, {
         type: 'text',
         text: `✅ บันทึกเรียบร้อย!\n🍽️ ${foodName}\n🔥 ${calories} kcal\n📅 มื้อ: ${mealType}`,
@@ -122,7 +112,6 @@ async function handleSaveCommand(userId: string, replyToken: string, text: strin
       });
     }
   } else {
-    // กรณี Format ผิด (เช่น User พิมพ์เองแล้วผิดรูปแบบ)
     await client.replyMessage(replyToken, {
       type: 'text',
       text: '⚠️ รูปแบบข้อมูลไม่ถูกต้อง',
@@ -130,17 +119,13 @@ async function handleSaveCommand(userId: string, replyToken: string, text: strin
   }
 }
 
-// --- 🔌 SERVER SETUP (For Vercel & Local) ---
-const client = new line.Client(config);
+// --- 🔌 SERVER SETUP ---
 const port = process.env.PORT || 3000;
 
-// ถ้ามี Env VERCEL แปลว่ารันบน Cloud ให้ Export app
 if (process.env.VERCEL) {
   module.exports = app;
 } else {
-  // ถ้ารัน Local ให้ listen port เอง
   app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
-    console.log(`Allowed Users: ${ALLOWED_USER_IDS.length > 0 ? ALLOWED_USER_IDS.join(', ') : 'ALL (No whitelist)'}`);
   });
 }

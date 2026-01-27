@@ -1,18 +1,18 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-require('dotenv').config();
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import dotenv from 'dotenv';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+dotenv.config();
 
-exports.analyzeFoodImage = async (imageBuffer) => {
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+
+export const analyzeFoodImage = async (imageBuffer: Buffer): Promise<any> => {
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
-  // 🎯 Prompt ขั้นสูง: สั่งให้แยกรายการสินค้าและรวมยอด
   const prompt = `
     Analyze this food image (which may contain multiple items, e.g., 7-11 products).
-    
     Tasks:
     1. Identify ALL distinct food items visible.
-    2. Estimate calories for EACH item (read the label if visible, otherwise estimate).
+    2. Estimate calories for EACH item.
     3. Calculate the grand total calories.
     
     Return ONLY a valid JSON object with this structure:

@@ -1,13 +1,16 @@
-const line = require('@line/bot-sdk');
-require('dotenv').config();
+import * as line from '@line/bot-sdk';
+import dotenv from 'dotenv';
 
+dotenv.config();
+
+// สร้าง Client แยกในนี้เพื่อให้ service เรียกใช้ได้สะดวก
 const client = new line.Client({
-  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN
+  channelAccessToken: process.env.CHANNEL_ACCESS_TOKEN || '',
+  channelSecret: process.env.CHANNEL_SECRET || '',
 });
 
-exports.replyFoodResult = async (replyToken, data) => {
-  // 1. สร้างรายการสินค้า (เหมือนเดิม)
-  const itemRows = data.items.map(item => ({
+export const replyFoodResult = async (replyToken: string, data: any) => {
+  const itemRows = data.items.map((item: any) => ({
     type: "box",
     layout: "horizontal",
     contents: [
@@ -17,25 +20,21 @@ exports.replyFoodResult = async (replyToken, data) => {
     margin: "sm"
   }));
 
-  // 2. 🌟 ส่วนที่เพิ่ม: สร้างปุ่มเลือกมื้ออาหาร (Helper Function)
-  // ปุ่มนี้จะส่งข้อความว่า "บันทึก: [ชื่อเมนู] ([แคล] kcal) - [มื้อ]" กลับมา
-  const createMealButton = (label, icon, mealType, color) => ({
+  const createMealButton = (label: string, icon: string, mealType: string, color: string) => ({
     type: "button",
-    style: "secondary", // ใช้แบบ secondary จะได้ดูไม่รก
+    style: "secondary",
     height: "sm",
     color: color,
     action: {
       type: "message",
       label: `${icon} ${label}`,
-      // Text ที่ส่งกลับมาต้องตรงกับ Regex ที่ Controller รอรับ
       text: `บันทึก: ${data.summary_name} (${data.total_calories} kcal) - ${mealType}`
     },
     flex: 1,
     margin: "xs"
   });
 
-  // 3. ประกอบ Flex Message
-  const flexMsg = {
+  const flexMsg: line.FlexMessage = {
     type: "flex",
     altText: `AI วิเคราะห์: ${data.total_calories} kcal`,
     contents: {
@@ -44,11 +43,8 @@ exports.replyFoodResult = async (replyToken, data) => {
         type: "box",
         layout: "vertical",
         contents: [
-          // Header
           { type: "text", text: "🛒 ผลวิเคราะห์สินค้า", weight: "bold", size: "lg", color: "#1DB446" },
           { type: "separator", margin: "md" },
-          
-          // List รายการ
           { 
             type: "box", 
             layout: "vertical", 
@@ -56,10 +52,7 @@ exports.replyFoodResult = async (replyToken, data) => {
             spacing: "xs",
             contents: itemRows 
           },
-          
           { type: "separator", margin: "md" },
-          
-          // Total Summary
           {
             type: "box",
             layout: "horizontal",
@@ -71,14 +64,12 @@ exports.replyFoodResult = async (replyToken, data) => {
           }
         ]
       },
-      // 🌟 Footer ใหม่: ปุ่มเลือกมื้อ
       footer: {
         type: "box",
         layout: "vertical",
         spacing: "sm",
         contents: [
           { type: "text", text: "เลือกมื้อที่จะบันทึก 👇", size: "xs", color: "#aaaaaa", align: "center" },
-          // แถวที่ 1: เช้า - เที่ยง
           {
             type: "box",
             layout: "horizontal",
@@ -87,7 +78,6 @@ exports.replyFoodResult = async (replyToken, data) => {
               createMealButton("เที่ยง", "☀️", "Lunch", "#EF4444")
             ]
           },
-          // แถวที่ 2: เย็น - ของว่าง
           {
             type: "box",
             layout: "horizontal",
@@ -104,11 +94,11 @@ exports.replyFoodResult = async (replyToken, data) => {
   await client.replyMessage(replyToken, flexMsg);
 };
 
-exports.getContent = async (messageId) => {
+export const getContent = async (messageId: string): Promise<Buffer> => {
     const stream = await client.getMessageContent(messageId);
-    const chunks = [];
+    const chunks: Buffer[] = [];
     for await (const chunk of stream) {
-        chunks.push(chunk);
+        chunks.push(chunk as Buffer);
     }
     return Buffer.concat(chunks);
 };
