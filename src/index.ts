@@ -6,7 +6,7 @@ import * as lineService from './services/line.service';
 import * as userService from './services/user.service';
 import { MAIN_QUICK_REPLY } from './services/line.service'; 
 import dotenv from 'dotenv';
-import path from 'path'; // เพิ่ม import path
+import path from 'path'; 
 
 dotenv.config();
 
@@ -62,7 +62,7 @@ app.post('/webhook', line.middleware(config as line.MiddlewareConfig), async (re
 });
 
 // ==========================================
-// 4. API อื่นๆ (ใช้ JSON Parser ได้)
+// 4. API อื่นๆ (ใช้ JSON Parser ได้) - ย้ายมาไว้ตรงนี้ ✅
 // ==========================================
 app.use(express.json());
 
@@ -76,7 +76,6 @@ app.post('/api/register-liff', async (req, res) => {
     // Push Message Confirm
     const client = new line.Client(config as line.ClientConfig);
     
-    // แปลง goal เป็นภาษาไทย
     let goalText = 'รักษาน้ำหนัก';
     if (goal === 'lose_weight') goalText = 'ลดน้ำหนัก';
     else if (goal === 'muscle_gain') goalText = 'สร้างกล้ามเนื้อ';
@@ -141,8 +140,6 @@ async function handleEvent(event: line.WebhookEvent) {
   else if (event.type === 'message') {
     const isRegistered = await userService.checkUserExists(userId);
     
-    // ⚠️ ถ้ายังไม่แก้ RLS อาจจะติดตรงนี้ (อ่าน DB ไม่ได้ -> checkUserExists คืนค่า false)
-    // บอทอาจจะวนถามให้ลงทะเบียนใหม่ แต่จะไม่เงียบครับ
     if (!isRegistered) {
       await client.replyMessage(event.replyToken, {
         type: 'flex',
