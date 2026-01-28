@@ -105,11 +105,20 @@ app.get('/api/user-profile/:userId', async (req, res) => {
 
 async function handleEvent(event: line.WebhookEvent) {
   const userId = event.source.userId;
-  if (
-    !userId ||
-    (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId))
-  )
-    return Promise.resolve(null);
+  if (ALLOWED_USER_IDS.length > 0 && !ALLOWED_USER_IDS.includes(userId)) {
+      const client = new line.Client(config as line.ClientConfig);
+      // ถ้าเป็น Message หรือ Follow ให้ตอบกลับ
+      if (event.type === 'message' || event.type === 'follow') {
+          // เช็คว่ามี replyToken มั้ย (บาง event ไม่มี)
+          if ('replyToken' in event) {
+              await client.replyMessage(event.replyToken, {
+                  type: 'text',
+                  text: `⛔️ คุณยังไม่มีสิทธิ์ใช้งานบอทนี้\n\n🆔 User ID ของคุณคือ:\n${userId}\n\n(กรุณาก๊อปปี้ ID นี้ส่งให้แอดมินเพื่อขอสิทธิ์ครับ)`
+              });
+          }
+      }
+      return Promise.resolve(null);
+    }
   const client = new line.Client(config as line.ClientConfig);
 
   if (event.type === "follow") {
