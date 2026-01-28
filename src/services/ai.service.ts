@@ -1,92 +1,53 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from 'dotenv';
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
-export const analyzeFoodImage = async (imageBuffer: Buffer) => {
-  // ✅ ใช้รุ่น 2.0 Flash (ตัวเสถียร ตัด -exp ออก)
-  // ถ้ายัง Error ให้เปลี่ยนกลับเป็น 'gemini-1.5-flash'
-  const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.0-flash',
-    // 🛡️ ปลดล็อค Safety Settings (สำคัญมากสำหรับรูปอาหาร)
-    safetySettings: [
-      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-    ],
-    // ⚙️ บังคับให้ตอบเป็น JSON เท่านั้น (ลดโอกาส Error 99%)
-    generationConfig: { responseMimeType: "application/json" }
-  });
-
+export const analyzeFoodImage = async (imageBuffer: Buffer): Promise<any> => {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
   const prompt = `
-    Role: Expert Thai Nutritionist.
-    Task: Analyze food image. Identify menu and estimate calories.
-    
-    REQUIREMENT: Output JSON in THAI (ภาษาไทย).
-
-    LOGIC:
-    1. **Product Recognition:** If packaged, identify Brand/Flavor (e.g. "นมเมจิ สตรอเบอร์รี่").
-    2. **Cooking Analysis:**
-       - Clean Food? (Steamed, Boiled, No Oil) -> Low Cal. Name: "... (คลีน)".
-       - Street Food? (Stir-fry, Curry, Deep-fry) -> Add Oil/Sugar. Name: Normal Thai name.
-    
-    OUTPUT JSON SCHEMA:
+    Analyze this food image (which may contain multiple items).
+    Tasks:
+    1. Identify ALL distinct food items visible.
+    2. Estimate calories for EACH item.
+    3. Calculate the grand total calories.
+    IMPORTANT INSTRUCTION:
+    - Return the "name" and "summary_name" in THAI Language (ภาษาไทย) ONLY.
+    Return ONLY a valid JSON object:
     {
-      "summary_name": "Thai Menu Name",
-      "total_calories": Integer,
-      "items": [
-        { "name": "Thai Component Name", "calories": 0 }
-      ]
+      "items": [{ "name": "ข้าวกะเพราไก่", "calories": 550 }],
+      "total_calories": 550,
+      "summary_name": "ข้าวกะเพราไก่" 
     }
   `;
-
-  const imagePart = {
-    inlineData: {
-      data: imageBuffer.toString('base64'),
-      mimeType: 'image/jpeg',
-    },
-  };
-
-  try {
-    const result = await model.generateContent([prompt, imagePart]);
-    const response = await result.response;
-    
-    // ✅ พอใช้ responseMimeType: "application/json" ไม่ต้อง replace text แล้ว
-    const text = response.text();
-    return JSON.parse(text);
-
-  } catch (error: any) {
-    console.error('AI Error Details:', error); // ดู Logs ถ้ายังพัง
-    
-    // ถ้ายัง Error ให้ตอบค่า Default กลับไป (User จะได้ไม่ต้องถ่ายใหม่)
-    return {
-      summary_name: "วิเคราะห์ขัดข้อง (AI Busy)",
-      total_calories: 0,
-      items: [{ name: "ระบบกำลังปรับปรุง กรุณาลองใหม่", calories: 0 }]
-    };
-  }
+  const imagePart = { inlineData: { data: imageBuffer.toString("base64"), mimeType: "image/jpeg" } };
+  const result = await model.generateContent([prompt, imagePart]);
+  const response = await result.response;
+  let text = response.text();
+  text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  return JSON.parse(text);
 };
 
-// ... (ส่วน generateMenuRecommendation เหมือนเดิม แต่เพิ่ม safetySettings ด้วยก็ดีครับ)
-export const generateMenuRecommendation = async (category: string, mealType: string, budget: number, recentMenus: string[]) => {
-    const model = genAI.getGenerativeModel({ 
-        model: 'gemini-2.0-flash',
-        generationConfig: { responseMimeType: "application/json" }
-    }); 
-    
-    const prompt = `
-      Recommend 5 Thai menus for "${category}" (${mealType}). Budget: ${budget} kcal.
-      Exclude: ${recentMenus.join(', ')}.
-      Output JSON: { "recommendations": [{ "menu_name": "Thai Name", "calories": 0, "description": "Thai Desc" }] }
-    `;
-  
-    try {
-      const result = await model.generateContent(prompt);
-      return JSON.parse(result.response.text());
-    } catch (error) {
-      console.error('Menu Gen Error:', error);
-      return { recommendations: [] };
-    }
+export const generateMenuRecommendation = async (category: string, mealType: string, remainingCalories: number, recentMeals: string[] = []): Promise<any> => {
+  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const historyContext = recentMeals.length > 0 ? `Recently eaten (DO NOT suggest): ${recentMeals.join(', ')}.` : '';
+  const prompt = `
+    Role: Creative Chef & Nutritionist.
+    Context: User wants "${category}" for "${mealType}".
+    Constraint 1: User has ${remainingCalories} kcal remaining.
+    Constraint 2: ${historyContext}
+    Task: Suggest 3 distinct menu sets.
+    Specific Instructions:
+    - '7-11': Suggest pairings.
+    - 'Street Food': Common Thai street food.
+    - 'Home Cooked': Suggest EASY-to-cook Thai menus with simple ingredients.
+    Return ONLY a valid JSON object:
+    { "recommendations": [{ "menu_name": "Menu Name (Thai)", "calories": 350, "description": "Short reason (Thai)" }] }
+  `;
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  let text = response.text();
+  text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+  return JSON.parse(text);
 };
