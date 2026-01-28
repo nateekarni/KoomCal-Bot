@@ -11,7 +11,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 export const analyzeFoodImage = async (imageBuffer: Buffer) => {
   // ✅ ใช้ 1.5 Flash เพื่อความเสถียรสูงสุด (รุ่น 2.0 อาจจะมีปัญหาเรื่อง JSON Format ในบางครั้ง)
   const model = genAI.getGenerativeModel({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     safetySettings: [
       {
         category: HarmCategory.HARM_CATEGORY_HARASSMENT,
