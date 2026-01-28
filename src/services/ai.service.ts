@@ -6,7 +6,7 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export const analyzeFoodImage = async (imageBuffer: Buffer) => {
   // ✅ ใช้ Flash (ทำงานเร็วและครอบคลุม)
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   // 🔥 Super Prompt: เน้นภาษาไทย + แยกแยะ Clean Food
   const prompt = `
