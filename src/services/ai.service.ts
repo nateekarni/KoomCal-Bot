@@ -1,49 +1,43 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 import dotenv from 'dotenv';
 dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export const analyzeFoodImage = async (imageBuffer: Buffer) => {
-  // ✅ ใช้ Flash (ทำงานเร็วและครอบคลุม)
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  // ✅ ใช้รุ่น 2.0 Flash (ตัวเสถียร ตัด -exp ออก)
+  // ถ้ายัง Error ให้เปลี่ยนกลับเป็น 'gemini-1.5-flash'
+  const model = genAI.getGenerativeModel({ 
+    model: 'gemini-2.0-flash',
+    // 🛡️ ปลดล็อค Safety Settings (สำคัญมากสำหรับรูปอาหาร)
+    safetySettings: [
+      { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+      { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+    ],
+    // ⚙️ บังคับให้ตอบเป็น JSON เท่านั้น (ลดโอกาส Error 99%)
+    generationConfig: { responseMimeType: "application/json" }
+  });
 
-  // 🔥 Super Prompt: เน้นภาษาไทย + แยกแยะ Clean Food
   const prompt = `
-    Role: Expert Thai Nutritionist & Food Detective.
-    Task: Analyze the food image to identify the menu and estimate calories.
-
-    🚨 LANGUAGE REQUIREMENT: **OUTPUT IN THAI (ภาษาไทย) ONLY** for all names.
-
-    --- ANALYSIS STEPS ---
-
-    1. **PACKAGED PRODUCT (Priority):**
-       - Identify Brand, Flavor, Net Weight.
-       - Output Name in Thai (e.g., "นมเมจิ รสสตรอเบอร์รี่", "อกไก่นุ่ม CP", "เลย์ รสโนริสาหร่าย").
-       - Retrieve standard calories from knowledge base.
-
-    2. **VISUAL ANALYSIS (Cooking & Components):**
-       - **Identify Components:** List distinct parts in Thai (e.g., "อกไก่ต้ม", "ข้าวไรซ์เบอร์รี่", "ไข่ต้ม").
-       - **Detect "Clean Food" Signals:** - Is it Steamed/Boiled/Grilled? (No oil sheen)
-         - Is it Brown Rice/Riceberry?
-         - Is sauce served separately?
-         - Is meat lean/skinless?
-       - **Detect "Street Food" Signals:**
-         - Oily sheen (Stir-fry), Deep-fried, Coconut Curry.
+    Role: Expert Thai Nutritionist.
+    Task: Analyze food image. Identify menu and estimate calories.
     
-    3. **MENU MATCHING & CALCULATION:**
-       - **IF CLEAN FOOD:** Name it specifically in Thai (e.g., "ข้าวกะเพราอกไก่ (คลีน)", "ข้าวไรซ์เบอร์รี่ อกไก่ต้ม"). Estimate based on raw ingredients. DO NOT add hidden oil calories.
-       - **IF STREET FOOD:** Name it normally in Thai (e.g., "ข้าวมันไก่", "ข้าวขาหมู", "กะเพราหมูสับไข่ดาว"). **ADD** hidden calories for oil/sugar/chicken skin.
-       - **IF UNSURE:** Assume Street Food standard (Safety margin).
+    REQUIREMENT: Output JSON in THAI (ภาษาไทย).
 
-    --- OUTPUT FORMAT (JSON Only) ---
+    LOGIC:
+    1. **Product Recognition:** If packaged, identify Brand/Flavor (e.g. "นมเมจิ สตรอเบอร์รี่").
+    2. **Cooking Analysis:**
+       - Clean Food? (Steamed, Boiled, No Oil) -> Low Cal. Name: "... (คลีน)".
+       - Street Food? (Stir-fry, Curry, Deep-fry) -> Add Oil/Sugar. Name: Normal Thai name.
+    
+    OUTPUT JSON SCHEMA:
     {
-      "summary_name": "ชื่อเมนูภาษาไทย (เช่น 'ข้าวกะเพราอกไก่ (คลีน)', 'ข้าวมันไก่ต้ม')",
-      "total_calories": Integer (Total Estimate),
+      "summary_name": "Thai Menu Name",
+      "total_calories": Integer,
       "items": [
-        { "name": "ชื่อส่วนประกอบภาษาไทย 1 (เช่น 'ข้าวไรซ์เบอร์รี่ 150g')", "calories": 0 },
-        { "name": "ชื่อส่วนประกอบภาษาไทย 2 (เช่น 'อกไก่ต้ม')", "calories": 0 },
-        { "name": "หมายเหตุการปรุง (เช่น 'ไม่ใช้น้ำมัน')", "calories": 0 }
+        { "name": "Thai Component Name", "calories": 0 }
       ]
     }
   `;
@@ -58,47 +52,41 @@ export const analyzeFoodImage = async (imageBuffer: Buffer) => {
   try {
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
-    const text = response.text();
     
-    const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    return JSON.parse(jsonString);
-  } catch (error) {
-    console.error('AI Error:', error);
+    // ✅ พอใช้ responseMimeType: "application/json" ไม่ต้อง replace text แล้ว
+    const text = response.text();
+    return JSON.parse(text);
+
+  } catch (error: any) {
+    console.error('AI Error Details:', error); // ดู Logs ถ้ายังพัง
+    
+    // ถ้ายัง Error ให้ตอบค่า Default กลับไป (User จะได้ไม่ต้องถ่ายใหม่)
     return {
-      summary_name: "ประเมินไม่ได้",
+      summary_name: "วิเคราะห์ขัดข้อง (AI Busy)",
       total_calories: 0,
-      items: [{ name: "กรุณาลองใหม่ หรือพิมพ์ชื่อเมนู", calories: 0 }]
+      items: [{ name: "ระบบกำลังปรับปรุง กรุณาลองใหม่", calories: 0 }]
     };
   }
 };
 
-// ... (ส่วน generateMenuRecommendation ปรับให้บังคับไทยด้วย) ...
+// ... (ส่วน generateMenuRecommendation เหมือนเดิม แต่เพิ่ม safetySettings ด้วยก็ดีครับ)
 export const generateMenuRecommendation = async (category: string, mealType: string, budget: number, recentMenus: string[]) => {
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' }); 
+    const model = genAI.getGenerativeModel({ 
+        model: 'gemini-2.0-flash',
+        generationConfig: { responseMimeType: "application/json" }
+    }); 
+    
     const prompt = `
-      Act as a personal fitness chef. User wants a "${category}" meal for "${mealType}".
-      Calorie Budget: ${budget} kcal.
-      Recent meals (avoid these): ${recentMenus.join(', ')}.
-  
-      Recommend 5 distinct **Thai menus (Names in Thai)** suitable for this category and budget.
-      
-      Response in JSON format:
-      {
-        "recommendations": [
-          { "menu_name": "ชื่อเมนูภาษาไทย", "calories": 0, "description": "Short reasoning in Thai" }
-        ]
-      }
-      Strictly NO Markdown blocks.
+      Recommend 5 Thai menus for "${category}" (${mealType}). Budget: ${budget} kcal.
+      Exclude: ${recentMenus.join(', ')}.
+      Output JSON: { "recommendations": [{ "menu_name": "Thai Name", "calories": 0, "description": "Thai Desc" }] }
     `;
   
     try {
       const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-      const jsonString = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      return JSON.parse(jsonString);
+      return JSON.parse(result.response.text());
     } catch (error) {
       console.error('Menu Gen Error:', error);
       return { recommendations: [] };
     }
-  };
+};
